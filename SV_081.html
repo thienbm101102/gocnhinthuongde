@@ -1,0 +1,2080 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Evolution 3D: Genetics & Archery</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Segoe UI', sans-serif; user-select: none; }
+        #ui-layer { position: absolute; top: 10px; left: 10px; color: #fff; pointer-events: none; z-index: 100; text-shadow: 1px 1px 2px #000; }
+        .panel { background: rgba(0, 15, 0, 0.7); border: 1px solid #00ff41; padding: 10px; border-radius: 8px; margin-bottom: 10px; pointer-events: auto; }
+        
+        .bot-label, .animal-label { position: absolute; background: rgba(0, 0, 0, 0.8); border: 1px solid #555; color: #fff; padding: 6px; border-radius: 6px; font-size: 11px; text-align: left; pointer-events: none; transform: translate(-50%, -100%); white-space: nowrap; box-shadow: 0 0 8px rgba(0,0,0,0.5); display: none; transition: border-color 0.3s; z-index: 10; }
+        .animal-label { background: rgba(20, 10, 0, 0.6); border-color: #aa5500; font-size: 10px; padding: 3px 5px; }
+        
+        .desperate-mode { color: #ff3333; font-weight: bold; animation: blink 0.5s infinite; }
+        .crazy-mode { color: #ff3333; font-weight: bold; font-size: 9px; animation: blink 0.4s infinite; }
+        .alert-mode { color: #ffaa00; font-weight: bold; font-size: 10px; animation: blink 0.3s infinite; }
+        .buff-mode { color: #00ffff; font-weight: bold; font-size: 10px; animation: blink 0.6s infinite; }
+        .exhausted-text { color: #aaaaaa; font-style: italic; font-weight: bold; font-size: 10px; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+        #inventory-panel { position: absolute; top: 10px; right: 10px; width: 230px; display: none; color: #fff; background: rgba(0, 25, 0, 0.85); box-shadow: 0 0 10px rgba(0,255,65,0.2); text-shadow: 1px 1px 2px #000;}
+        .inv-item { display: flex; justify-content: space-between; border-bottom: 1px dashed #555; padding: 4px 0; font-size: 13px; color: #ddd; font-weight: 500;}
+        .inv-weapon { color: #ffeb3b; font-weight: bold; margin-bottom: 5px; text-align: center; font-size: 13px; }
+        .inv-armor { color: #00e5ff; font-weight: bold; margin-bottom: 5px; text-align: center; font-size: 11px; }
+
+        .stat-row { display: flex; align-items: center; margin-top: 3px; }
+        .stat-icon { width: 14px; text-align: center; margin-right: 4px; font-size: 10px; }
+        .bar-container { flex-grow: 1; height: 5px; background: #333; border-radius: 2px; overflow: hidden; position: relative; width: 60px;}
+        .bar-fill { height: 100%; transition: width 0.2s; }
+        .hp-fill { background: #ff3333; } .food-fill { background: #ffaa00; } .water-fill { background: #00ccff; } .sleep-fill { background: #aa00ff; } .stam-fill { background: #ffff00; }
+        
+        .cam-btn { background: #222; color: #fff; border: 1px solid #555; padding: 5px 10px; cursor: pointer; border-radius: 4px; margin-right: 5px; font-size: 11px; transition: 0.2s; }
+        .cam-btn:hover { background: #444; } .cam-btn.active { background: #00ff41; color: #000; font-weight: bold; border-color: #00ff41; }
+        .building-label { position: absolute; background: rgba(139, 69, 19, 0.8); border: 1px solid #ffaa00; color: #fff; padding: 3px 6px; border-radius: 4px; font-size: 10px; pointer-events: none; transform: translate(-50%, -50%); display: none; text-align: center; font-weight: bold; z-index: 5;}
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+    <div id="ui-layer">
+        <div class="panel">
+            <h3 style="margin:0 0 5px 0; color:#00ff41;">🧬 AI EVOLUTION v77.0 (Escape Dynamics & Fast Loot)</h3>
+            <div id="time-display" style="font-size: 14px; font-weight: bold;">Ngày 1 - 08:00 (Mùa Xuân)</div>
+            <div id="weather-display" style="color:#ffaa00; font-size: 11px;">Fix Kẹt Núi | Cân Bằng Dụng Cụ | Gom Đồ Đỉnh Cao</div>
+        </div>
+        <div class="panel" style="display: flex; gap: 5px;">
+            <button class="cam-btn active" onclick="setCamera('free')">🎥 Tự do</button>
+            <button class="cam-btn" onclick="setCamera('b1')" style="border-bottom: 2px solid #ff0055;">🔴 Alpha</button>
+            <button class="cam-btn" onclick="setCamera('b2')" style="border-bottom: 2px solid #0088ff;">🔵 Beta</button>
+            <button class="cam-btn" onclick="setCamera('b3')" style="border-bottom: 2px solid #22aa22;">🟢 Gamma</button>
+        </div>
+    </div>
+    
+    <div id="inventory-panel" class="panel">
+        <h4 id="inv-bot-name" style="margin: 0 0 5px 0; color: #00ff41; text-align: center;">🎒 TÚI ĐỒ</h4>
+        <div id="inv-weapon-slot" class="inv-weapon">⚔️ Vũ khí: Tay không</div>
+        <div id="inv-armor-slot" class="inv-armor">🛡️ Giáp: Không có</div>
+        <div class="inv-item"><span>🌲 Gỗ:</span> <span id="inv-wood">0</span></div>
+        <div class="inv-item"><span>🪨 Đá:</span> <span id="inv-stone">0</span></div>
+        <div class="inv-item"><span>⛏️ Quặng:</span> <span id="inv-ore">0</span></div>
+        <div class="inv-item"><span>🍖 Thịt:</span> <span id="inv-meat">0</span></div>
+        <div class="inv-item"><span>🍇 Thực vật:</span> <span id="inv-food">0</span></div>
+        <div class="inv-item"><span>🧥 Lông thú:</span> <span id="inv-fur">0</span></div>
+    </div>
+
+    <div id="labels-container"></div>
+
+    <script>
+        // ==========================================
+        // 1. THIẾT LẬP THẾ GIỚI
+        // ==========================================
+        const MAP_SIZE = 25000; const MAP_LIMIT = 12000;
+        const waterZones = []; const mountains = []; 
+        const projectiles = []; 
+        const botMemories = {};
+
+        const scene = new THREE.Scene(); scene.fog = new THREE.FogExp2(0x87CEEB, 0.0002);
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 10, 60000);
+        camera.position.set(0, 800, 1200);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: false }); renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.maxPolarAngle = Math.PI / 2 - 0.05; controls.maxDistance = 10000;
+        controls.enableDamping = true; controls.dampingFactor = 0.05;
+
+        const keys = { KeyW: false, KeyA: false, KeyS: false, KeyD: false };
+        window.addEventListener('keydown', e => { if(keys.hasOwnProperty(e.code)) keys[e.code] = true; });
+        window.addEventListener('keyup', e => { if(keys.hasOwnProperty(e.code)) keys[e.code] = false; });
+
+        let globalTime = 8; let daysPassed = 1; const SEASONS = ['Xuân', 'Hạ', 'Thu', 'Đông']; let currentSeason = 0;
+        let targetBotId = 'free'; window.rockSpawnedThisCycle = false; window.oreSpawnedThisCycle = false;
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4); scene.add(ambientLight);
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1.0); sunLight.castShadow = true;
+        sunLight.shadow.camera.left = -3000; sunLight.shadow.camera.right = 3000; sunLight.shadow.camera.top = 3000; sunLight.shadow.camera.bottom = -3000;
+        scene.add(sunLight);
+
+        const ground = new THREE.Mesh(new THREE.PlaneGeometry(MAP_SIZE, MAP_SIZE), new THREE.MeshStandardMaterial({ color: 0x3a5f2e, roughness: 0.9 }));
+        ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+
+        const waterMat = new THREE.MeshStandardMaterial({ color: 0x1ca3ec, transparent: true, opacity: 0.8 });
+        
+        let tempWaterZones = [];
+        function createWindingRiver(points, width) {
+            const curve = new THREE.CatmullRomCurve3(points);
+            const river = new THREE.Mesh(new THREE.TubeGeometry(curve, 100, width, 8, false).scale(1,0.05,1), waterMat);
+            river.position.y = 2; scene.add(river); 
+            curve.getPoints(100).forEach(p => tempWaterZones.push({x: p.x, z: p.z, r: width}));
+        }
+        createWindingRiver([new THREE.Vector3(-10000, 0, 5000), new THREE.Vector3(0, 0, 0), new THREE.Vector3(8000, 0, -8000)], 250);
+        for(let i=0; i<20; i++) { 
+            let x = (Math.random()-0.5)*MAP_SIZE; let z = (Math.random()-0.5)*MAP_SIZE; let r = Math.random()*200+100;
+            scene.add(new THREE.Mesh(new THREE.CylinderGeometry(r, r, 5, 32), waterMat).translateY(2.5).translateX(x).translateZ(z)); tempWaterZones.push({x: x, z: z, r: r}); 
+        }
+
+        for(let i=0; i<80; i++) {
+            let x = (Math.random() - 0.5) * MAP_SIZE; let z = (Math.random() - 0.5) * MAP_SIZE;
+            if (Math.abs(x) < 1500 && Math.abs(z) < 1500) continue; 
+            let h = Math.random() * 1200 + 600; let r = h * 0.8;
+            const mountain = new THREE.Mesh(new THREE.ConeGeometry(r, h, 7), new THREE.MeshStandardMaterial({color: 0x2f3e25}));
+            mountain.position.set(x, h/2, z); mountain.rotation.y = Math.random() * Math.PI; scene.add(mountain);
+            mountains.push({x: x, z: z, r: r}); 
+        }
+
+        function isInsideMountain(x, z, padding = 0) {
+            for(let m of mountains) { let dx = x - m.x; let dz = z - m.z; if (dx*dx + dz*dz < (m.r + padding)*(m.r + padding)) return true; } return false;
+        }
+
+        for(let w of tempWaterZones) {
+            if(!isInsideMountain(w.x, w.z, 0)) waterZones.push(w);
+        }
+
+        function isInWater(pos) {
+            for(let w of waterZones) { let dx = pos.x - w.x; let dz = pos.z - w.z; if (dx*dx + dz*dz < w.r*w.r) return true; } return false;
+        }
+
+        function applyMountainCollision(entity) {
+            let pos = entity.group ? entity.group.position : entity.mesh.position;
+            for(let m of mountains) {
+                let dx = pos.x - m.x; let dz = pos.z - m.z;
+                let distSq = dx*dx + dz*dz;
+                
+                if (distSq < m.r * m.r) {
+                    let dist = Math.sqrt(distSq); if (dist === 0) { dx = 1; dz = 0; dist = 1; }
+                    let overlap = m.r - dist; 
+                    pos.x += (dx / dist) * overlap; pos.z += (dz / dist) * overlap;
+                }
+            }
+            if(entities.buildings) {
+                entities.buildings.forEach(b => {
+                    if (b.active) {
+                        if (entity.id && b.owner === entity.id) return;
+                        let dx = pos.x - b.position.x; let dz = pos.z - b.position.z;
+                        let distSq = dx*dx + dz*dz;
+                        if (distSq < 70*70) {
+                            let dist = Math.sqrt(distSq); if (dist === 0) { dx = 1; dz = 0; dist = 1; }
+                            let overlap = 70 - dist;
+                            pos.x += (dx / dist) * overlap; pos.z += (dz / dist) * overlap;
+                            if (entity.target) entity.target.copy(pos);
+                        }
+                    }
+                });
+            }
+        }
+
+        function removeFromScene(obj) {
+            if (!obj) return;
+            if (obj.group) scene.remove(obj.group);
+            else if (obj.mesh) scene.remove(obj.mesh);
+            else scene.remove(obj);
+        }
+
+        function dropResources(x, z, type, count) {
+            let dropType = type === 'wood' ? 'wood_drop' : (type === 'stone' ? 'stone_drop' : 'ore_drop');
+            let color = type === 'wood' ? 0x8b5a2b : (type === 'stone' ? 0xaaaaaa : 0x3a404a);
+            for(let i=0; i<count; i++) {
+                const mesh = new THREE.Mesh(new THREE.BoxGeometry(4, 4, 4), new THREE.MeshStandardMaterial({color: color}));
+                mesh.position.set(x + (Math.random()-0.5)*20, 2, z + (Math.random()-0.5)*20);
+                mesh.castShadow = true; mesh.type = dropType; mesh.active = true;
+                scene.add(mesh); entities.items.push(mesh);
+            }
+        }
+
+        let entities = { trees: [], rocks: [], ores: [], animals: [], bots: [], buildings: [], items: [] };
+
+        function spawnTree(x, z) {
+            let valid = false; let attempts = 0;
+            if (x === undefined || z === undefined) {
+                while(!valid && attempts < 50) { 
+                    x = (Math.random()-0.5)*MAP_LIMIT*2; z = (Math.random()-0.5)*MAP_LIMIT*2; 
+                    if(!isInsideMountain(x, z, 50) && !isInWater({x:x, y:0, z:z})) valid = true; 
+                    attempts++; 
+                }
+            } else { if(!isInsideMountain(x, z, 50)) valid = true; }
+            if(!valid) return; 
+
+            let isOak = Math.random() > 0.5; let isBerry = Math.random() > 0.7; 
+            const tree = new THREE.Group(); tree.position.set(x, 0, z);
+            if (isBerry) { 
+                tree.add(new THREE.Mesh(new THREE.DodecahedronGeometry(25), new THREE.MeshStandardMaterial({color: 0x228B22})).translateY(15)); 
+                tree.type = 'berry'; tree.maxHp = 20; tree.hp = 20; 
+            } else { 
+                tree.add(new THREE.Mesh(new THREE.CylinderGeometry(isOak?10:6, isOak?12:8, isOak?60:40), new THREE.MeshStandardMaterial({color: 0x4a2e00})).translateY(isOak?30:20)); 
+                tree.add(new THREE.Mesh(isOak ? new THREE.DodecahedronGeometry(50) : new THREE.ConeGeometry(40, 90, 8), new THREE.MeshStandardMaterial({color: isOak?0x2e8b57:0x1e591e})).translateY(isOak?70:65)); 
+                tree.type = 'wood'; tree.maxHp = isOak?80:50; tree.hp = tree.maxHp; 
+            }
+            tree.active = true; scene.add(tree); entities.trees.push(tree);
+        }
+
+        function spawnRock(x, z) {
+            let valid = false; let attempts = 0;
+            if (x === undefined || z === undefined) {
+                while(!valid && attempts < 50) { 
+                    x = (Math.random()-0.5)*MAP_LIMIT*2; z = (Math.random()-0.5)*MAP_LIMIT*2; 
+                    if(!isInsideMountain(x, z, 50) && !isInWater({x:x, y:0, z:z})) valid = true; 
+                    attempts++; 
+                }
+            } else { if(!isInsideMountain(x, z, 50)) valid = true; }
+            if(!valid) return;
+
+            const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(Math.random()*20+15), new THREE.MeshStandardMaterial({color: 0x777777}));
+            rock.position.set(x, 10, z); rock.castShadow = true; 
+            rock.type = 'stone'; rock.maxHp = 100; rock.hp = 100; rock.active = true; 
+            scene.add(rock); entities.rocks.push(rock);
+        }
+
+        function spawnOre(x, z) {
+            let valid = false; let attempts = 0;
+            if (x === undefined || z === undefined) {
+                while(!valid && attempts < 50) { 
+                    x = (Math.random()-0.5)*MAP_LIMIT*2; z = (Math.random()-0.5)*MAP_LIMIT*2; 
+                    if(!isInsideMountain(x, z, 50) && !isInWater({x:x, y:0, z:z})) valid = true; 
+                    attempts++; 
+                }
+            } else { if(!isInsideMountain(x, z, 50)) valid = true; }
+            if(!valid) return;
+
+            const oreMat = new THREE.MeshStandardMaterial({color: 0x3a404a, metalness: 0.8, roughness: 0.3});
+            const ore = new THREE.Mesh(new THREE.DodecahedronGeometry(Math.random()*15+12, 1), oreMat);
+            ore.position.set(x, 8, z); ore.castShadow = true; 
+            ore.type = 'ore'; ore.maxHp = 150; ore.hp = 150; ore.active = true; 
+            scene.add(ore); entities.ores.push(ore);
+        }
+
+        for(let i=0; i<400; i++) spawnTree();
+        for(let i=0; i<150; i++) spawnRock();
+        for(let i=0; i<80; i++) spawnOre();
+
+        for(let i=0; i<800; i++) {
+            let x, z; let valid = false; let attempts = 0;
+            while(!valid && attempts < 50) { 
+                x = (Math.random()-0.5)*MAP_LIMIT*2; z = (Math.random()-0.5)*MAP_LIMIT*2; 
+                if(!isInsideMountain(x, z, 50) && !isInWater({x:x, y:0, z:z})) valid = true; 
+                attempts++; 
+            }
+            if(!valid) continue;
+            const branch = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 12), new THREE.MeshStandardMaterial({color: 0x5c4033}));
+            branch.rotation.x = Math.PI/2; branch.rotation.z = Math.random() * Math.PI; branch.position.set(x, 1, z); branch.castShadow = true; branch.type = 'wood_item'; branch.active = true; scene.add(branch); entities.items.push(branch);
+        }
+
+        for(let i=0; i<500; i++) {
+            let x, z; let valid = false; let attempts = 0;
+            while(!valid && attempts < 50) { 
+                x = (Math.random()-0.5)*MAP_LIMIT*2; z = (Math.random()-0.5)*MAP_LIMIT*2; 
+                if(!isInsideMountain(x, z, 50) && !isInWater({x:x, y:0, z:z})) valid = true; 
+                attempts++; 
+            }
+            if(!valid) continue;
+            const pebble = new THREE.Mesh(new THREE.DodecahedronGeometry(3), new THREE.MeshStandardMaterial({color: 0x888888}));
+            pebble.position.set(x, 2, z); pebble.castShadow = true; pebble.type = 'stone_item'; pebble.active = true; scene.add(pebble); entities.items.push(pebble);
+        }
+
+        // ==========================================
+        // 2. ĐỘNG VẬT
+        // ==========================================
+        const SPECIES = {
+            'Thỏ': { color: 0xffffff, scale: 0.8, speed: 2.0, diet: 'herbivore', behavior: 'flee', meat: 2, fur: 1, hp: 20, dmg: 1, cap: 40 },
+            'Hươu': { color: 0xd2a679, scale: 1.8, speed: 2.5, diet: 'herbivore', behavior: 'flee', meat: 6, fur: 3, hp: 50, dmg: 5, cap: 25 },
+            'Lợn rừng': { color: 0x5c4033, scale: 1.5, speed: 1.8, diet: 'omnivore', behavior: 'aggressive', meat: 5, fur: 2, hp: 60, dmg: 12, cap: 15 },
+            'Cáo': { color: 0xd95a00, scale: 1.2, speed: 2.6, diet: 'carnivore', behavior: 'hunt_small', meat: 3, fur: 2, hp: 40, dmg: 8, cap: 10 },
+            'Gấu': { color: 0x3b2f2f, scale: 2.5, speed: 1.5, diet: 'carnivore', behavior: 'aggressive', meat: 10, fur: 5, hp: 150, dmg: 25, cap: 8 }
+        };
+
+        class Animal3D {
+            constructor(speciesName, spawnX=null, spawnZ=null) {
+                this.species = speciesName; const sp = SPECIES[speciesName];
+                this.level = 1; this.age = 0; this.maxHp = sp.hp; this.hp = this.maxHp; 
+                this.active = true; this.baseSpeed = sp.speed; this.behavior = sp.behavior; this.baseDmg = sp.dmg;
+                
+                this.food = 100; 
+                this.isCrazy = false; 
+                this.attackCooldown = 0; 
+                this.attackAnimTimer = 0; 
+                this.mountainBlockTimer = 0;
+
+                this.mesh = new THREE.Group(); 
+                let sx, sz;
+                if(spawnX !== null) { sx = spawnX; sz = spawnZ; } 
+                else { 
+                    let valid = false; let att=0; 
+                    while(!valid && att<50) { sx = (Math.random()-0.5)*MAP_LIMIT*1.5; sz = (Math.random()-0.5)*MAP_LIMIT*1.5; if(!isInsideMountain(sx, sz, 50) && !isInWater({x:sx, y:0, z:sz})) valid = true; att++; } 
+                }
+                this.mesh.position.set(sx || 0, 0, sz || 0);
+
+                const bodyMat = new THREE.MeshStandardMaterial({color: sp.color});
+                this.body = new THREE.Group(); this.body.position.y = 12; this.mesh.add(this.body);
+                this.body.add(new THREE.Mesh(new THREE.BoxGeometry(10, 8, 18), bodyMat));
+                
+                let headGeo = new THREE.BoxGeometry(6, 6, 8);
+                if(speciesName === 'Lợn rừng') headGeo = new THREE.BoxGeometry(8, 7, 10); if(speciesName === 'Gấu') headGeo = new THREE.BoxGeometry(10, 10, 12);
+                this.body.add(new THREE.Mesh(headGeo, bodyMat).translateY(5).translateZ(10));
+                
+                const createLeg = (x, z) => { const leg = new THREE.Group(); leg.position.set(x, -2, z); leg.add(new THREE.Mesh(new THREE.BoxGeometry(2, 6, 2), bodyMat).translateY(-3)); this.body.add(leg); return leg; };
+                this.legs = [createLeg(-4, -6), createLeg(4, -6), createLeg(-4, 6), createLeg(4, 6)];
+                
+                let startScale = sp.scale * (spawnX !== null ? 0.7 : 1.0);
+                this.mesh.scale.set(startScale, startScale, startScale); scene.add(this.mesh);
+                this.target = new THREE.Vector3(); this.pickTarget(); this.animOffset = Math.random() * 100;
+
+                this.labelElement = document.createElement('div'); this.labelElement.className = 'animal-label'; document.getElementById('labels-container').appendChild(this.labelElement);
+            }
+            
+            takeDamage(amount, attacker) {
+                if(this.hp <= 0) return;
+                this.hp -= amount;
+                if(this.hp > 0) {
+                    if (this.behavior === 'aggressive' || this.behavior === 'hunt_small' || this.species === 'Lợn rừng' || this.isCrazy) {
+                        this.target.copy(attacker.group ? attacker.group.position : attacker.position);
+                    } else {
+                        let dir = new THREE.Vector3().subVectors(this.mesh.position, attacker.group ? attacker.group.position : attacker.position).normalize();
+                        this.target.copy(this.mesh.position).add(dir.multiplyScalar(600));
+                    }
+                }
+            }
+
+            pickTarget() { 
+                let valid = false; let attempts = 0; let tx, tz;
+                while(!valid && attempts < 50) {
+                    tx = this.mesh.position.x + (Math.random()-0.5)*1500; tz = this.mesh.position.z + (Math.random()-0.5)*1500;
+                    if(!isInsideMountain(tx, tz, 50) && !isInWater({x:tx, y:0, z:tz})) valid = true; attempts++;
+                }
+                if(!valid) { tx = 0; tz = 0; } 
+                this.target.set(tx, 0, tz); 
+            }
+            
+            update() {
+                if (!this.active || this.hp <= 0) { 
+                    this.labelElement.style.display = 'none'; 
+                    if (this.active) this.die();
+                    return; 
+                }
+
+                let hitWall = false;
+                if (this.mesh.position.x > MAP_LIMIT) { this.mesh.position.x = MAP_LIMIT; hitWall = true; }
+                else if (this.mesh.position.x < -MAP_LIMIT) { this.mesh.position.x = -MAP_LIMIT; hitWall = true; }
+                if (this.mesh.position.z > MAP_LIMIT) { this.mesh.position.z = MAP_LIMIT; hitWall = true; }
+                else if (this.mesh.position.z < -MAP_LIMIT) { this.mesh.position.z = -MAP_LIMIT; hitWall = true; }
+                if (hitWall) this.pickTarget();
+                
+                if (this.attackCooldown > 0) this.attackCooldown--; 
+
+                this.food -= 0.015; 
+                if (this.food <= 0) {
+                    this.food = 0;
+                    this.hp -= 0.1; 
+                }
+
+                let diet = SPECIES[this.species].diet;
+                if (diet === 'carnivore' || diet === 'omnivore') {
+                    if (this.food < 30) this.isCrazy = true; 
+                    else if (this.food > 50) this.isCrazy = false;
+                } else if (diet === 'herbivore') {
+                    if (this.food < 50 && Math.random() < 0.05) { 
+                        this.food = Math.min(100, this.food + 20);
+                    }
+                }
+
+                let activeBehavior = this.isCrazy ? 'aggressive' : this.behavior;
+                let currentSpeed = this.isCrazy ? this.baseSpeed * 1.5 : this.baseSpeed; 
+
+                this.age++;
+                if (this.age % 800 === 0 && this.level < 5) { this.level++; this.maxHp += 10; this.hp += 10; this.baseDmg += 2; this.mesh.scale.multiplyScalar(1.05); }
+                if (this.age > 1200 && Math.random() < 0.005) {
+                    if (entities.animals.filter(a => a.species === this.species && a.active).length < SPECIES[this.species].cap) { entities.animals.push(new Animal3D(this.species, this.mesh.position.x + (Math.random()-0.5)*50, this.mesh.position.z + (Math.random()-0.5)*50)); this.age = 500; }
+                }
+
+                let isMoving = false; let closestThreat = null; let threatDist = 800;
+                
+                if (activeBehavior === 'flee') { 
+                    entities.bots.forEach(b => { if(b.stats.hp > 0 && b.state !== "dead") { let d = this.mesh.position.distanceTo(b.group.position); if (d < threatDist) { threatDist = d; closestThreat = b.group; }}}); 
+                } else if (activeBehavior === 'hunt_small' || activeBehavior === 'aggressive') {
+                    entities.bots.forEach(b => { if(b.stats.hp > 0 && b.state !== "dead" && b.state !== "begging") { let d = this.mesh.position.distanceTo(b.group.position); if (d < 400) { threatDist = d; closestThreat = b; }}}); 
+                    if (this.isCrazy) {
+                        entities.animals.forEach(a => { if(a.active && a !== this && a.hp > 0 && SPECIES[a.species].diet === 'herbivore') { let d = this.mesh.position.distanceTo(a.mesh.position); if (d < 400 && d < threatDist) { threatDist = d; closestThreat = a; }}});
+                    }
+                }
+
+                if (closestThreat && Math.abs(this.mesh.position.x) < MAP_LIMIT && Math.abs(this.mesh.position.z) < MAP_LIMIT) { 
+                    currentSpeed *= 1.5; 
+                    if (activeBehavior === 'flee') { 
+                        isMoving = true;
+                        let dir = new THREE.Vector3().subVectors(this.mesh.position, closestThreat.position ? closestThreat.position : closestThreat.group.position).normalize(); 
+                        let ftx = this.mesh.position.x + dir.x * 400; let ftz = this.mesh.position.z + dir.z * 400;
+                        if (!isInsideMountain(ftx, ftz, 20) && !isInWater({x:ftx, y:0, z:ftz})) this.target.set(ftx, 0, ftz); 
+                    } else { 
+                        this.target.copy(closestThreat.group ? closestThreat.group.position : (closestThreat.mesh ? closestThreat.mesh.position : closestThreat.position)); 
+                        
+                        if (threatDist > 35) isMoving = true; 
+
+                        if (threatDist < 45 && this.attackCooldown <= 0) { 
+                            if (closestThreat.takeDamage && Math.random() < 0.1) {
+                                closestThreat.takeDamage(this.baseDmg, this);
+                                this.attackCooldown = 60; 
+                                this.attackAnimTimer = 20; 
+                                
+                                let targetHp = closestThreat.stats ? closestThreat.stats.hp : closestThreat.hp;
+                                if (targetHp <= 0) {
+                                    this.food = 100;
+                                    this.isCrazy = false;
+                                }
+                            }
+                        }
+                    } 
+                } else { 
+                    if (this.mesh.position.distanceTo(this.target) > 20) isMoving = true; else this.pickTarget(); 
+                }
+
+                if (isInsideMountain(this.target.x, this.target.z, 0)) { this.pickTarget(); }
+
+                if(isInWater(this.mesh.position)) currentSpeed *= 0.3;
+
+                if(isMoving) {
+                    let dir = new THREE.Vector3().subVectors(this.target, this.mesh.position);
+                    dir.y = 0; 
+                    if(dir.lengthSq() > 0.001) { 
+                        dir.normalize(); 
+                        
+                        let avoidance = new THREE.Vector3();
+                        let hittingMountain = false;
+                        for(let m of mountains) {
+                            let dx = this.mesh.position.x - m.x;
+                            let dz = this.mesh.position.z - m.z;
+                            let distSq = dx*dx + dz*dz;
+                            let avoidRadius = m.r + 100; 
+                            if(distSq < avoidRadius * avoidRadius) {
+                                hittingMountain = true;
+                                let dist = Math.sqrt(distSq);
+                                if(dist === 0) { dx=1; dz=0; dist=1; }
+                                let pushForce = Math.pow((avoidRadius - dist) / avoidRadius, 2) * 5.0; 
+                                avoidance.x += (dx / dist) * pushForce;
+                                avoidance.z += (dz / dist) * pushForce;
+                                
+                                let dot = dir.x * (-dz) + dir.z * dx;
+                                let sign = dot > 0 ? 1 : -1;
+                                avoidance.x += (-dz / dist) * pushForce * sign * 1.5;
+                                avoidance.z += (dx / dist) * pushForce * sign * 1.5;
+                            }
+                        }
+                        
+                        if (hittingMountain) {
+                            this.mountainBlockTimer++;
+                            if (this.mountainBlockTimer > 120) {
+                                this.pickTarget();
+                                this.mountainBlockTimer = 0;
+                            }
+                        } else {
+                            this.mountainBlockTimer = 0;
+                        }
+
+                        for(let w of waterZones) {
+                            let dx = this.mesh.position.x - w.x;
+                            let dz = this.mesh.position.z - w.z;
+                            let distSq = dx*dx + dz*dz;
+                            let avoidRadius = w.r + 50;
+                            if(distSq < avoidRadius * avoidRadius) {
+                                let dist = Math.sqrt(distSq);
+                                if(dist === 0) { dx=1; dz=0; dist=1; }
+                                let pushForce = Math.pow((avoidRadius - dist) / avoidRadius, 2) * 6.0; 
+                                avoidance.x += (dx / dist) * pushForce;
+                                avoidance.z += (dz / dist) * pushForce;
+                            }
+                        }
+
+                        if(avoidance.lengthSq() > 0) { 
+                            avoidance.y = 0; dir.add(avoidance.multiplyScalar(2.0)); dir.y = 0; 
+                        }
+
+                        if(dir.lengthSq() > 0.001) {
+                            dir.normalize();
+                            this.mesh.position.add(dir.clone().multiplyScalar(currentSpeed)); 
+                            
+                            let lookTarget = new THREE.Vector3().copy(this.mesh.position).add(dir);
+                            let currentQuat = this.mesh.quaternion.clone();
+                            this.mesh.lookAt(lookTarget);
+                            let targetQuat = this.mesh.quaternion.clone();
+                            this.mesh.quaternion.copy(currentQuat);
+                            this.mesh.quaternion.slerp(targetQuat, 0.15);
+                        }
+                    }
+                    this.animOffset += currentSpeed * 0.15;
+                    this.legs[0].rotation.x = -Math.sin(this.animOffset) * 0.5; this.legs[1].rotation.x = -Math.sin(this.animOffset + Math.PI) * 0.5; this.legs[2].rotation.x = -Math.sin(this.animOffset + Math.PI) * 0.5; this.legs[3].rotation.x = -Math.sin(this.animOffset) * 0.5;
+                    if (this.species === 'Thỏ') this.body.position.y = 12 + Math.abs(Math.sin(this.animOffset)) * 5;
+                } else {
+                    this.legs[0].rotation.x = 0; this.legs[1].rotation.x = 0; this.legs[2].rotation.x = 0; this.legs[3].rotation.x = 0;
+                }
+                
+                if (this.attackAnimTimer > 0) {
+                    this.attackAnimTimer--;
+                    this.body.rotation.x = -Math.sin(this.attackAnimTimer * 0.3) * 0.4; 
+                } else {
+                    this.body.rotation.x = 0;
+                }
+                
+                applyMountainCollision(this);
+
+                const vector = new THREE.Vector3(); this.mesh.getWorldPosition(vector);
+                vector.y += 30 * this.mesh.scale.y; vector.project(camera);
+                const x = (vector.x * .5 + .5) * window.innerWidth; const y = (vector.y * -.5 + .5) * window.innerHeight;
+                if (vector.z < 1 && !isNaN(x) && !isNaN(y)) {
+                    this.labelElement.style.display = 'block'; this.labelElement.style.left = `${x}px`; this.labelElement.style.top = `${y}px`;
+                    let crazyText = this.isCrazy ? `<div class="crazy-mode">💢 ĐÓI/HÓA ĐIÊN</div>` : ``;
+                    this.labelElement.innerHTML = `Lv.${this.level} ${this.species} ${crazyText}<br> <div style="width:100%; height:2px; background:red; margin-top:2px;"><div style="width:${(this.hp/this.maxHp)*100}%; height:100%; background:#00ff00;"></div></div>`;
+                } else { this.labelElement.style.display = 'none'; }
+            }
+            
+            die() { 
+                this.active = false; 
+                removeFromScene(this.mesh);
+                if (this.labelElement && this.labelElement.parentNode) {
+                    this.labelElement.parentNode.removeChild(this.labelElement);
+                }
+
+                let l = this.level || 1;
+                let meatCount = SPECIES[this.species].meat * l;
+                let furCount = SPECIES[this.species].fur * l;
+                
+                for(let i=0; i<meatCount; i++) {
+                    const meat = new THREE.Mesh(new THREE.BoxGeometry(2.5, 2.5, 2.5), new THREE.MeshStandardMaterial({color: 0xff3333}));
+                    meat.position.set(this.mesh.position.x + (Math.random()-0.5)*15, 1.25, this.mesh.position.z + (Math.random()-0.5)*15);
+                    meat.castShadow = true; meat.type = 'meat_item'; meat.active = true;
+                    scene.add(meat); entities.items.push(meat);
+                }
+                for(let i=0; i<furCount; i++) {
+                    const fur = new THREE.Mesh(new THREE.BoxGeometry(3, 1, 3), new THREE.MeshStandardMaterial({color: 0x8b5a2b}));
+                    fur.position.set(this.mesh.position.x + (Math.random()-0.5)*15, 0.5, this.mesh.position.z + (Math.random()-0.5)*15);
+                    fur.castShadow = true; fur.type = 'fur_item'; fur.active = true;
+                    scene.add(fur); entities.items.push(fur);
+                }
+            }
+        }
+        
+        for(let i=0; i<30; i++) entities.animals.push(new Animal3D('Thỏ'));
+        for(let i=0; i<15; i++) entities.animals.push(new Animal3D('Hươu'));
+        for(let i=0; i<10; i++) entities.animals.push(new Animal3D('Lợn rừng'));
+        for(let i=0; i<5; i++) entities.animals.push(new Animal3D('Cáo'));
+        for(let i=0; i<5; i++) entities.animals.push(new Animal3D('Gấu'));
+
+        // ==========================================
+        // 3. AI BOT
+        // ==========================================
+        class SmartBot {
+            constructor(id, originalName, color) {
+                this.id = id; this.color = color;
+                
+                if (!botMemories[id]) { botMemories[id] = { gen: 1, foodThresh: 40, waterThresh: 40, sleepThresh: 40, combatFocus: 1.0, wantsBoat: false }; }
+                this.mem = botMemories[id];
+                this.name = `${originalName} (Gen ${this.mem.gen})`;
+
+                this.level = 1; this.xp = 0;
+                this.stats = { hp: 100, maxHp: 100, food: 100, water: 100, sleep: 100, stam: 100 };
+                this.inv = { wood: 0, stone: 0, ore: 0, meat: 0, fur: 0, food: 2 }; 
+                this.buildings = { house: null, bed: null, campfire: null };
+                
+                this.combatWeapon = "Tay không";
+                this.weaponName = "Tay không"; this.damage = 5; 
+                this.armorName = "Không có"; this.defense = 0;
+                this.tools = { axe: 0, pickaxe: 0, spear: 0, shield: 0 };
+                this.bonusSpeed = 0; this.bonusCrit = 0;
+                
+                this.isDesperate = false; this.ownsBoat = false; this.hasBoat = false; this.isExhausted = false; this.hasTorch = false;
+                this.torchLife = 0; this.waterBlockTimer = 0; this.mountainBlockTimer = 0;
+                this.alertTimer = 0; this.workTimer = 0; this.onWorkComplete = null; this.attackCooldown = 0;
+                this.decisionTimer = 0; 
+                
+                this.baseSpeed = 2.5; this.state = "idle"; this.actionText = "Đang phân tích...";
+                this.lockedTarget = null; this.target = new THREE.Vector3(); 
+                
+                this.group = new THREE.Group(); 
+                let valid = false; let att=0;
+                while(!valid && att<50) { 
+                    this.group.position.set((Math.random()-0.5)*MAP_LIMIT, 0, (Math.random()-0.5)*MAP_LIMIT); 
+                    if(!isInWater(this.group.position) && !isInsideMountain(this.group.position.x, this.group.position.z, 50)) valid = true;
+                    att++;
+                }
+                this.group.scale.set(1.5, 1.5, 1.5);
+
+                const shirtMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.9 });
+                const skinMat = new THREE.MeshStandardMaterial({ color: 0xffdbac, roughness: 0.6 });
+                const pantsMat = new THREE.MeshStandardMaterial({ color: 0x223344, roughness: 0.9 }); 
+                const shoeMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8 }); 
+                const leatherMat = new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9 }); 
+
+                this.torsoGroup = new THREE.Group(); this.torsoGroup.position.y = 19; this.group.add(this.torsoGroup);
+                this.torso = new THREE.Mesh(new THREE.BoxGeometry(10, 13, 5), shirtMat); 
+                this.torso.castShadow = true; this.torsoGroup.add(this.torso);
+                
+                const belt = new THREE.Mesh(new THREE.BoxGeometry(10.5, 1.5, 5.5), leatherMat);
+                belt.position.y = -6; this.torsoGroup.add(belt);
+
+                const backpack = new THREE.Mesh(new THREE.BoxGeometry(8, 9, 3.5), leatherMat);
+                backpack.position.set(0, 1, -4); backpack.castShadow = true;
+                this.torsoGroup.add(backpack);
+
+                const neck = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 2, 2, 8), skinMat);
+                neck.position.y = 7.5; this.torsoGroup.add(neck);
+
+                this.head = new THREE.Group(); this.head.position.y = 12.5; this.torsoGroup.add(this.head);
+                const headMesh = new THREE.Mesh(new THREE.BoxGeometry(8, 8, 8), skinMat); 
+                headMesh.castShadow = true; this.head.add(headMesh);
+                
+                const scleraMat = new THREE.MeshBasicMaterial({color: 0xffffff});
+                const pupilMat = new THREE.MeshBasicMaterial({color: 0x111111});
+                
+                const eyeL = new THREE.Group(); eyeL.position.set(-2, 1, 4.1);
+                eyeL.add(new THREE.Mesh(new THREE.BoxGeometry(2, 1.2, 0.5), scleraMat));
+                eyeL.add(new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.6), pupilMat).translateZ(0.2));
+                
+                const eyeR = new THREE.Group(); eyeR.position.set(2, 1, 4.1);
+                eyeR.add(new THREE.Mesh(new THREE.BoxGeometry(2, 1.2, 0.5), scleraMat));
+                eyeR.add(new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.6), pupilMat).translateZ(0.2));
+                
+                const earL = new THREE.Mesh(new THREE.BoxGeometry(1, 2.5, 2), skinMat); earL.position.set(-4.5, 0, 1);
+                const earR = new THREE.Mesh(new THREE.BoxGeometry(1, 2.5, 2), skinMat); earR.position.set(4.5, 0, 1);
+                const nose = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.8, 1.2), skinMat); nose.position.set(0, -0.8, 4.5);
+                const mouth = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.4, 0.8), new THREE.MeshBasicMaterial({color: 0x331111})); 
+                mouth.position.set(0, -2.5, 4.1);
+                
+                this.hairGroup = new THREE.Group();
+                const hairMat = new THREE.MeshStandardMaterial({color: 0x2b1d12, roughness: 0.9}); 
+                const hairTop = new THREE.Mesh(new THREE.BoxGeometry(8.5, 2, 8.5), hairMat); hairTop.position.set(0, 4.5, 0);
+                const hairBack = new THREE.Mesh(new THREE.BoxGeometry(8.5, 3, 2), hairMat); hairBack.position.set(0, 2.5, -3.5);
+                const hairBangs = new THREE.Mesh(new THREE.BoxGeometry(8.5, 1.5, 2), hairMat); hairBangs.position.set(0, 3.5, 3.5);
+                this.hairGroup.add(hairTop, hairBack, hairBangs);
+
+                this.head.add(eyeL, eyeR, earL, earR, nose, mouth, this.hairGroup);
+                
+                this.helmetMesh = new THREE.Mesh(new THREE.BoxGeometry(9.2, 9.2, 9.2), new THREE.MeshStandardMaterial({color: 0xaaaaaa, metalness: 0.4, roughness: 0.5})); 
+                this.helmetMesh.visible = false; this.head.add(this.helmetMesh);
+                
+                this.chestMesh = new THREE.Mesh(new THREE.BoxGeometry(10.5, 14, 5.5), new THREE.MeshStandardMaterial({color: 0x5c4033})); 
+                this.chestMesh.visible = false; this.torsoGroup.add(this.chestMesh);
+
+                const createArm = (shirtMat, skinMat) => { 
+                    const limb = new THREE.Group(); 
+                    const sleeve = new THREE.Mesh(new THREE.BoxGeometry(3.5, 6, 3.5), shirtMat); sleeve.position.y = -3; sleeve.castShadow = true;
+                    const forearm = new THREE.Mesh(new THREE.BoxGeometry(2.8, 5, 2.8), skinMat); forearm.position.y = -8.5; forearm.castShadow = true;
+                    const hand = new THREE.Mesh(new THREE.BoxGeometry(3.2, 3.2, 3.2), skinMat); hand.position.y = -12; hand.castShadow = true;
+                    limb.add(sleeve, forearm, hand); return limb; 
+                };
+                
+                const createLeg = (pantsMat, shoeMat) => { 
+                    const limb = new THREE.Group(); 
+                    const legMesh = new THREE.Mesh(new THREE.BoxGeometry(4, 10, 4), pantsMat); legMesh.position.y = -5; legMesh.castShadow = true;
+                    const shoe = new THREE.Mesh(new THREE.BoxGeometry(4.2, 3, 5.5), shoeMat); shoe.position.set(0, -11.5, 0.5); shoe.castShadow = true; 
+                    limb.add(legMesh, shoe); return limb; 
+                };
+
+                this.legL = createLeg(pantsMat, shoeMat); this.legL.position.set(-2.8, -6.5, 0); this.torsoGroup.add(this.legL);
+                this.legR = createLeg(pantsMat, shoeMat); this.legR.position.set(2.8, -6.5, 0); this.torsoGroup.add(this.legR);
+                
+                this.armL = createArm(shirtMat, skinMat); this.armL.position.set(-6.5, 6, 0); this.torsoGroup.add(this.armL);
+                this.armR = createArm(shirtMat, skinMat); this.armR.position.set(6.5, 6, 0); this.torsoGroup.add(this.armR);
+
+                this.shieldGroup = new THREE.Group();
+                this.shieldGroup.position.set(-2.5, -8, 2);
+                this.armL.add(this.shieldGroup);
+
+                this.torchGroup = new THREE.Group();
+                const torchHandle = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 8), new THREE.MeshStandardMaterial({color: 0x5c4033}));
+                torchHandle.position.y = -7;
+                const flame = new THREE.Mesh(new THREE.ConeGeometry(2, 5, 4), new THREE.MeshBasicMaterial({color: 0xff6600}));
+                flame.position.y = -2;
+                this.torchLight = new THREE.PointLight(0xff8800, 0, 350); 
+                this.torchLight.position.y = -1;
+                this.torchGroup.add(torchHandle, flame, this.torchLight);
+                this.torchGroup.position.set(0, -5, 2); 
+                this.torchGroup.rotation.x = Math.PI / 2;
+                this.torchGroup.visible = false;
+                this.armL.add(this.torchGroup);
+
+                this.weaponGroup = new THREE.Group();
+                this.weaponGroup.position.set(0, -12, 1.5); 
+                this.armR.add(this.weaponGroup);
+                
+                this.aura = new THREE.PointLight(0xff0000, 0, 100); this.group.add(this.aura);
+                
+                this.boatGroup = new THREE.Group();
+                const hull = new THREE.Mesh(new THREE.BoxGeometry(18, 5, 28), new THREE.MeshStandardMaterial({color: 0x4a2e00})); 
+                const prow = new THREE.Mesh(new THREE.ConeGeometry(9, 12, 4), new THREE.MeshStandardMaterial({color: 0x4a2e00}));
+                prow.rotation.x = Math.PI/2; prow.rotation.y = Math.PI/4; prow.position.z = 14; 
+                const paddle = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 20), new THREE.MeshStandardMaterial({color: 0x8b5a2b}));
+                paddle.rotation.x = Math.PI/2; paddle.rotation.z = Math.PI/4; paddle.position.set(10, 2, 0); 
+                this.boatGroup.add(hull, prow, paddle);
+                this.boatGroup.position.y = -5; this.boatGroup.visible = false;
+                this.group.add(this.boatGroup);
+
+                scene.add(this.group); this.animOffset = Math.random();
+                this.labelElement = document.createElement('div'); this.labelElement.className = 'bot-label'; document.getElementById('labels-container').appendChild(this.labelElement);
+            }
+
+            equipForTask(target) {
+                let desired = this.combatWeapon;
+                if (target && target.active && target.type !== 'point') {
+                    if (target.type === 'wood' && this.tools.axe > 0) {
+                        desired = this.tools.axe === 2 ? "Rìu Sắt" : "Rìu Đá";
+                    }
+                    else if ((target.type === 'stone' || target.type === 'ore') && this.tools.pickaxe > 0) {
+                        desired = this.tools.pickaxe === 2 ? "Cuốc Chim Sắt" : "Cuốc Chim Đá";
+                    }
+                }
+                if (this.weaponName !== desired) this.setWeapon(desired);
+            }
+
+            setShield(type) {
+                while(this.shieldGroup.children.length > 0){ this.shieldGroup.remove(this.shieldGroup.children[0]); }
+                if (type === "Khiên Gỗ") {
+                    const shield = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, 1.5, 16), new THREE.MeshStandardMaterial({color: 0x5c4033}));
+                    shield.rotation.z = Math.PI/2; shield.castShadow = true;
+                    this.shieldGroup.add(shield); this.defense = 0.2; this.armorName = "Khiên Gỗ (Def +20%)";
+                } else if (type === "Khiên Đá") {
+                    const shield = new THREE.Mesh(new THREE.CylinderGeometry(7, 7, 2, 8), new THREE.MeshStandardMaterial({color: 0x777777}));
+                    shield.rotation.z = Math.PI/2; shield.castShadow = true;
+                    this.shieldGroup.add(shield); this.defense = 0.4; this.armorName = "Khiên Đá (Def +40%)";
+                } else if (type === "Khiên Sắt") {
+                    const shield = new THREE.Mesh(new THREE.CylinderGeometry(7, 7, 2, 16), new THREE.MeshStandardMaterial({color: 0xaaaaaa, metalness: 0.8, roughness: 0.2}));
+                    shield.rotation.z = Math.PI/2; shield.castShadow = true;
+                    this.shieldGroup.add(shield); this.defense = 0.6; this.armorName = "Khiên Sắt (Def +60%)";
+                }
+            }
+
+            setWeapon(type) {
+                while(this.weaponGroup.children.length > 0){ this.weaponGroup.remove(this.weaponGroup.children[0]); }
+                this.weaponName = type;
+                this.damage = 5; this.bonusCrit = 0; this.bonusSpeed = 0;
+                
+                if (type === "Gậy Gỗ") {
+                    const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 15), new THREE.MeshStandardMaterial({color: 0x5c4033}));
+                    stick.rotation.x = Math.PI/2; stick.position.z = 7.5; stick.castShadow = true; this.weaponGroup.add(stick); this.damage = 8;
+                } else if (type === "Giáo Đá" || type === "Giáo Sắt") {
+                    let isIron = type === "Giáo Sắt";
+                    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 24), new THREE.MeshStandardMaterial({color: 0x5c4033})); 
+                    shaft.rotation.x = Math.PI/2; shaft.position.z = 12;
+                    const tip = new THREE.Mesh(new THREE.ConeGeometry(2, 6, 4), new THREE.MeshStandardMaterial({color: isIron ? 0xaaaaaa : 0x777777, metalness: isIron?0.8:0})); 
+                    tip.rotation.x = Math.PI/2; tip.position.z = 27; tip.castShadow = true; shaft.castShadow = true;
+                    this.weaponGroup.add(shaft, tip); 
+                    this.damage = isIron ? 22 : 12; 
+                    this.bonusSpeed = isIron ? 1.0 : 0.5; 
+                } 
+                else if (type === "Rìu Đá" || type === "Rìu Sắt") {
+                    let isIron = type === "Rìu Sắt";
+                    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 14), new THREE.MeshStandardMaterial({color: 0x5c4033})); handle.rotation.x = Math.PI/2; handle.position.z = 7;
+                    const blade = new THREE.Mesh(new THREE.BoxGeometry(1.5, 8, 6), new THREE.MeshStandardMaterial({color: isIron ? 0xaaaaaa : 0x777777, metalness: isIron?0.8:0})); blade.position.set(0, 3, 12);
+                    blade.castShadow = true; handle.castShadow = true;
+                    this.weaponGroup.add(handle, blade); 
+                    this.damage = isIron ? 25 : 15; 
+                }
+                else if (type === "Cuốc Chim Đá" || type === "Cuốc Chim Sắt") {
+                    let isIron = type === "Cuốc Chim Sắt";
+                    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 16), new THREE.MeshStandardMaterial({color: 0x5c4033})); handle.rotation.x = Math.PI/2; handle.position.z = 8;
+                    const headGrp = new THREE.Group();
+                    const headMat = new THREE.MeshStandardMaterial({color: isIron ? 0xaaaaaa : 0x777777, metalness: isIron?0.8:0});
+                    const head1 = new THREE.Mesh(new THREE.ConeGeometry(1.5, 10, 4), headMat); head1.rotation.x = Math.PI/2; head1.position.z = 5;
+                    const head2 = new THREE.Mesh(new THREE.ConeGeometry(1.5, 10, 4), headMat); head2.rotation.x = -Math.PI/2; head2.position.z = -5;
+                    headGrp.add(head1, head2); headGrp.position.z = 14;
+                    headGrp.castShadow = true; handle.castShadow = true;
+                    this.weaponGroup.add(handle, headGrp); 
+                    this.damage = isIron ? 20 : 10; 
+                    this.bonusCrit = isIron ? 0.4 : 0.2; 
+                }
+                else if (type === "Kiếm Đá") {
+                    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 5), new THREE.MeshStandardMaterial({color: 0x3b2f2f})); handle.rotation.x = Math.PI/2; handle.position.z = 2.5;
+                    const guard = new THREE.Mesh(new THREE.BoxGeometry(6, 1, 2), new THREE.MeshStandardMaterial({color: 0x555555})); guard.rotation.x = Math.PI/2; guard.position.z = 5;
+                    const blade = new THREE.Mesh(new THREE.BoxGeometry(3, 15, 1), new THREE.MeshStandardMaterial({color: 0xaaaaaa})); blade.rotation.x = Math.PI/2; blade.position.z = 13;
+                    blade.castShadow = true; handle.castShadow = true; guard.castShadow = true;
+                    this.weaponGroup.add(handle, guard, blade); this.damage = 18;
+                } else if (type === "Cung Gỗ") {
+                    const bowGeo = new THREE.TorusGeometry(6, 0.8, 8, 16, Math.PI);
+                    const bow = new THREE.Mesh(bowGeo, new THREE.MeshStandardMaterial({color: 0x4a2e00}));
+                    bow.rotation.z = Math.PI/2; bow.rotation.y = Math.PI/2; bow.position.z = 2;
+                    const string = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 12), new THREE.MeshBasicMaterial({color: 0xeeeeee}));
+                    string.position.z = 2;
+                    this.weaponGroup.add(bow, string); this.damage = 45;
+                }
+                else if (type === "Kiếm Sắt") {
+                    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 6), new THREE.MeshStandardMaterial({color: 0x222222})); handle.rotation.x = Math.PI/2; handle.position.z = 3;
+                    const guard = new THREE.Mesh(new THREE.BoxGeometry(8, 1.5, 2), new THREE.MeshStandardMaterial({color: 0xdaa520})); guard.rotation.x = Math.PI/2; guard.position.z = 6;
+                    const blade = new THREE.Mesh(new THREE.BoxGeometry(4, 20, 0.5), new THREE.MeshStandardMaterial({color: 0xcccccc, metalness: 0.8, roughness: 0.2})); blade.rotation.x = Math.PI/2; blade.position.z = 16;
+                    blade.castShadow = true; handle.castShadow = true; guard.castShadow = true;
+                    this.weaponGroup.add(handle, guard, blade); this.damage = 30;
+                }
+            }
+
+            gainXp(amount) {
+                this.xp += amount;
+                if (this.xp > this.level * 50) { 
+                    this.level++; 
+                    this.xp = 0; 
+                    this.stats.maxHp += 20; 
+                    this.stats.hp += 20; 
+                    this.actionText = "🌟 THĂNG CẤP!"; 
+                }
+            }
+
+            takeDamage(amount, attacker) {
+                if (this.stats.hp <= 0 || this.state === "dead") return;
+                let actualDmg = amount * (1 - this.defense);
+                
+                if (attacker && attacker.id && this.stats.hp - actualDmg <= 0 && this.stats.hp > 1) {
+                    this.stats.hp = 1;
+                    this.state = "begging";
+                    this.actionText = "Xin tha mạng! 🏳️";
+                    this.lockedTarget = null;
+                    this.workTimer = 0;
+                    
+                    attacker.state = "executing";
+                    attacker.lockedTarget = this;
+                    attacker.actionText = "Đang phán xét...";
+                    attacker.workTimer = 120; 
+                    return; 
+                }
+
+                this.stats.hp -= actualDmg;
+                if (this.stats.hp > 0 && attacker && this.state !== "begging") { 
+                    this.workTimer = 0; 
+                    this.lockedTarget = attacker; 
+                    
+                    if (this.stats.hp < this.stats.maxHp * 0.2) { 
+                        if (this.state !== "flee" && this.state !== "desperate_attack") {
+                            if (Math.random() < (this.mem.combatFocus * 0.4)) {
+                                this.state = "desperate_attack";
+                                this.actionText = "TỬ CHIẾN! 🩸⚔️";
+                            } else {
+                                this.state = "flee";
+                                this.actionText = "BỎ CHẠY! 🏃";
+                            }
+                        }
+                    } else { 
+                        this.state = "attack"; 
+                        this.actionText = "TỰ VỆ! ⚔️"; 
+                    }
+                }
+            }
+
+            gatherSpecific(woodNeeded, stoneNeeded, furNeeded, oreNeeded = 0) {
+                let woodToReserve = 1;
+                if (this.inv.wood < woodNeeded + woodToReserve) this.gatherResource('wood'); 
+                else if (this.inv.stone < stoneNeeded) this.gatherResource('stone'); 
+                else if (this.inv.fur < furNeeded) this.gatherResource('fur'); 
+                else if (this.inv.ore < oreNeeded) this.gatherResource('ore'); 
+                else this.gatherResource(Math.random() > 0.5 ? 'wood' : 'stone');
+            }
+
+            startWork(ticks, text, callback) {
+                this.state = "working"; this.actionText = text; this.workTimer = ticks; this.onWorkComplete = callback;
+            }
+
+            decideAction() {
+                if (["attack", "desperate_attack", "flee", "working", "sleeping", "resting", "begging", "executing"].includes(this.state)) return;
+                if (this.stats.hp <= 0) return;
+
+                this.decisionTimer = 120; 
+                this.lockedTarget = null; this.workTimer = 0;
+
+                if (Math.abs(this.group.position.x) > MAP_LIMIT || Math.abs(this.group.position.z) > MAP_LIMIT) { this.state = "wander"; this.actionText = "Trở về trung tâm"; this.target.set(0, 0, 0); this.lockedTarget = { type: 'point', position: this.target, active: true }; return; }
+
+                if (this.stats.sleep < 15) {
+                    if (this.buildings.bed) { this.state = "go_sleep"; this.lockedTarget = { type: 'bed', position: this.buildings.bed.position.clone(), active: true }; this.actionText = "Kiệt sức! Về nhà ngủ giường! 🏃💨"; return; } 
+                    else if (this.buildings.house) { this.state = "go_sleep"; this.lockedTarget = { type: 'house', position: this.buildings.house.position.clone(), active: true }; this.actionText = "Kiệt sức! Về nhà ngủ sàn! 🏃💨"; return; } 
+                    else { this.state = "sleeping"; this.actionText = "Ngất xỉu vì buồn ngủ... 💤"; return; }
+                }
+
+                if (this.stats.water < 20) { 
+                    this.state = "find_water"; 
+                    let closestWater = new THREE.Vector3(0,0,0); let minWDist = Infinity;
+                    waterZones.forEach(w => {
+                        let wp = new THREE.Vector3(w.x, 0, w.z);
+                        if (isInsideMountain(wp.x, wp.z, 0)) return; 
+                        let dist = this.group.position.distanceTo(wp);
+                        if(dist < minWDist) { minWDist = dist; closestWater = wp; }
+                    });
+                    this.lockedTarget = { type: 'water', position: closestWater, active: true }; 
+                    this.actionText = "Sắp chết khát! Đi tìm nước! 💧"; 
+                    return; 
+                }
+
+                if (this.stats.sleep < this.mem.sleepThresh && this.stats.sleep < 90) {
+                    if (this.buildings.bed) { this.state = "go_sleep"; this.lockedTarget = { type: 'bed', position: this.buildings.bed.position.clone(), active: true }; this.actionText = "Đến giờ đi ngủ 🏃💨"; return; } 
+                    else if (this.buildings.house) { this.state = "go_sleep"; this.lockedTarget = { type: 'house', position: this.buildings.house.position.clone(), active: true }; this.actionText = "Về nhà đi ngủ 🏃💨"; return; } 
+                }
+
+                if (this.stats.water < this.mem.waterThresh) { 
+                    this.state = "find_water"; 
+                    let closestWater = new THREE.Vector3(0,0,0); let minWDist = Infinity;
+                    waterZones.forEach(w => {
+                        let wp = new THREE.Vector3(w.x, 0, w.z);
+                        if (isInsideMountain(wp.x, wp.z, 0)) return; 
+                        let dist = this.group.position.distanceTo(wp);
+                        if(dist < minWDist) { minWDist = dist; closestWater = wp; }
+                    });
+                    this.lockedTarget = { type: 'water', position: closestWater, active: true }; 
+                    this.actionText = "Đi tìm nguồn nước"; 
+                    return; 
+                }
+
+                let needsHeal = this.stats.hp < this.stats.maxHp * 0.6;
+                let needsFood = this.stats.food < this.mem.foodThresh;
+
+                if (needsFood || needsHeal) {
+                    let isEmergency = this.stats.hp < this.stats.maxHp * 0.4;
+                    if (isEmergency && (this.inv.food > 0 || this.inv.meat > 0)) {
+                        if (this.inv.food > 0) {
+                            this.inv.food--; this.stats.food = Math.min(100, this.stats.food + 20); this.stats.water = Math.min(100, this.stats.water + 10); this.stats.hp = Math.min(this.stats.maxHp, this.stats.hp + 15); 
+                            this.actionText = "Ăn mọng khẩn cấp 🍇"; return;
+                        } else {
+                            this.inv.meat--; this.stats.food = Math.min(100, this.stats.food + 30); this.stats.hp = Math.min(this.stats.maxHp, this.stats.hp + 15); 
+                            this.actionText = "Ăn thịt sống khẩn cấp 🥩"; return;
+                        }
+                    }
+
+                    if (this.inv.meat > 0) {
+                        let isNearFire = this.buildings.campfire && this.group.position.distanceTo(this.buildings.campfire.position) < 300;
+                        if (isNearFire) {
+                            this.startWork(60, "Đang nướng thịt... 🥩🔥", () => {
+                                this.inv.meat--;
+                                this.stats.food = Math.min(100, this.stats.food + 60);
+                                this.stats.hp = Math.min(this.stats.maxHp, this.stats.hp + 50); 
+                            });
+                            return;
+                        } 
+                        else if (this.buildings.campfire) {
+                            this.state = "wander"; this.actionText = "Về bếp lửa nấu ăn";
+                            this.target.copy(this.buildings.campfire.position);
+                            this.lockedTarget = { type: 'point', position: this.target, active: true };
+                            return;
+                        } 
+                        else {
+                            if (this.inv.wood >= 5 && this.inv.stone >= 5) {
+                                this.startWork(120, "Dựng Lửa trại nấu ăn", () => this.buildCampfire());
+                            } else if (this.stats.hp < this.stats.maxHp * 0.3 || this.stats.food < 15) {
+                                this.inv.meat--;
+                                this.stats.food = Math.min(100, this.stats.food + 30);
+                                this.stats.hp = Math.min(this.stats.maxHp, this.stats.hp + 15); 
+                                this.actionText = "Ăn thịt sống cầm hơi! 🤢";
+                            } else {
+                                this.actionText = "Gom liệu làm Lửa trại nấu ăn"; 
+                                this.gatherSpecific(5, 5, 0); 
+                            }
+                            return;
+                        }
+                    } else if (this.inv.food > 0) {
+                        this.inv.food--;
+                        this.stats.food = Math.min(100, this.stats.food + 20);
+                        this.stats.water = Math.min(100, this.stats.water + 10); 
+                        this.stats.hp = Math.min(this.stats.maxHp, this.stats.hp + 15); 
+                        this.actionText = "Ăn quả mọng hồi sức 🍇";
+                        return;
+                    } else {
+                        let easyMeat = entities.items.filter(i => (i.type === 'meat_item' || i.type === 'food_item' || i.type === 'berry') && i.active);
+                        let closestFood = this.getClosest(easyMeat, 'all');
+                        if (closestFood && this.group.position.distanceTo(closestFood.position) < 2000) {
+                            this.state = "gather"; this.actionText = "Nhặt đồ ăn rớt để hồi phục 🥩";
+                            this.lockedTarget = closestFood; return;
+                        }
+                        
+                        this.state = Math.random() > 0.4 ? "hunt" : "gather"; 
+                        if (needsHeal) this.state = "gather"; 
+                        
+                        this.actionText = this.state === "hunt" ? "Đi săn kiếm thịt" : "Tìm quả mọng";
+                        this.lockedTarget = this.getClosest(this.state === "hunt" ? entities.animals : entities.trees, this.state === "hunt" ? 'all' : 'berry'); 
+                        if (this.lockedTarget) return; 
+
+                        this.state = "search_food";
+                        this.actionText = "Đói/Thương nặng, đi tìm thức ăn... 🔍";
+                        let validTarget = false; let attempts = 0; let tx, tz;
+                        while(!validTarget && attempts < 20) {
+                            tx = this.group.position.x + (Math.random()-0.5)*1500;
+                            tz = this.group.position.z + (Math.random()-0.5)*1500;
+                            if(!isInsideMountain(tx, tz, 50) && !isInWater({x:tx, y:0, z:tz})) validTarget = true;
+                            attempts++;
+                        }
+                        if(!validTarget) { tx = 0; tz = 0; }
+                        this.target.set(tx, 0, tz); 
+                        this.lockedTarget = { type: 'point', position: this.target, active: true };
+                        return;
+                    }
+                }
+
+                let isNightTime = globalTime >= 18 || globalTime < 6;
+                if (isNightTime && !this.hasTorch) {
+                    if (this.inv.wood >= 1) { 
+                        this.startWork(60, "Chế Đuốc soi đường...", () => { 
+                            this.inv.wood -= 1; 
+                            this.hasTorch = true; 
+                            this.torchLife = 3000;
+                        }); 
+                    } else { 
+                        this.actionText = "Mò mẫm tìm gỗ làm Đuốc"; this.gatherSpecific(1, 0, 0); 
+                    } 
+                    return;
+                }
+                
+                if (this.mem.wantsBoat && !this.ownsBoat) {
+                    if (this.inv.wood >= 20) {
+                        this.startWork(200, "Đóng Thuyền qua sông ⛵", () => { this.inv.wood -= 20; this.ownsBoat = true; this.mem.wantsBoat = false; }); return;
+                    } else {
+                        this.state = "gather"; this.actionText = "Bị chặn! Cần 20 gỗ đóng Thuyền ⛵"; this.gatherSpecific(20, 0, 0); return;
+                    }
+                }
+
+                let dropItems = entities.items.filter(i => (i.type === 'meat_item' || i.type === 'fur_item') && i.active);
+                let closestLoot = this.getClosest(dropItems, 'all'); 
+                if (closestLoot && this.group.position.distanceTo(closestLoot.position) < (isNightTime && !this.hasTorch ? 300 : 1500)) {
+                    this.state = "gather"; this.actionText = "Thu chiến lợi phẩm";
+                    this.lockedTarget = closestLoot;
+                    return;
+                }
+
+                if (this.combatWeapon === "Tay không") {
+                    if (this.inv.wood >= 1) { this.startWork(90, "Làm Gậy Gỗ...", () => { this.inv.wood -= 1; this.combatWeapon = "Gậy Gỗ"; }); } else { this.actionText = "Tìm cành cây"; this.gatherSpecific(1, 0, 0); } return;
+                }
+                
+                if (this.level >= 2) {
+                    if (this.tools.pickaxe < 1) {
+                        if (this.inv.wood >= 3 && this.inv.stone >= 5) { this.startWork(120, "Làm Cuốc Chim Đá ⛏️", () => { this.inv.wood -= 3; this.inv.stone -= 5; this.tools.pickaxe = 1; }); return; }
+                        else { this.actionText = "Gom liệu làm Cuốc Chim Đá"; this.gatherSpecific(3, 5, 0); return; }
+                    }
+                    if (this.tools.axe < 1) {
+                        if (this.inv.wood >= 3 && this.inv.stone >= 5) { this.startWork(120, "Làm Rìu Đá 🪓", () => { this.inv.wood -= 3; this.inv.stone -= 5; this.tools.axe = 1; }); return; }
+                        else { this.actionText = "Gom liệu làm Rìu Đá"; this.gatherSpecific(3, 5, 0); return; }
+                    }
+                    if (this.tools.spear < 1) {
+                        if (this.inv.wood >= 1 && this.inv.stone >= 3) { this.startWork(120, "Làm Giáo Đá 🗡️", () => { this.inv.wood -= 1; this.inv.stone -= 3; this.tools.spear = 1; this.combatWeapon = "Giáo Đá"; }); return; }
+                        else { this.actionText = "Gom liệu làm Giáo Đá"; this.gatherSpecific(1, 3, 0); return; }
+                    }
+                    if (this.tools.shield < 1) {
+                        if (this.inv.wood >= 4 && this.inv.stone >= 2) { this.startWork(120, "Làm Khiên Gỗ 🛡️", () => { this.inv.wood -= 4; this.inv.stone -= 2; this.tools.shield = 1; this.setShield("Khiên Gỗ"); }); return; }
+                        else { this.actionText = "Gom liệu làm Khiên Gỗ"; this.gatherSpecific(4, 2, 0); return; }
+                    }
+                }
+
+                if (this.level >= 4) {
+                    if (!this.buildings.house) {
+                        let canBuildStone = this.inv.stone >= 10;
+                        let canBuildWood = this.inv.wood >= 10;
+                        if (canBuildStone) { this.startWork(180, "Xây Nhà Đá 🪨", () => this.buildHouse('stone')); return; }
+                        else if (canBuildWood) { this.startWork(180, "Xây Nhà Gỗ 🪵", () => this.buildHouse('wood')); return; }
+                        else { 
+                            if (this.inv.stone > this.inv.wood) { this.actionText = "Gom đá xây Nhà (Lv.4)"; this.gatherSpecific(0, 10, 0); }
+                            else { this.actionText = "Gom gỗ xây Nhà (Lv.4)"; this.gatherSpecific(10, 0, 0); }
+                            return; 
+                        }
+                    }
+                    if (this.buildings.house && !this.buildings.bed) {
+                        if (this.inv.wood >= 5 + 1 && this.inv.fur >= 3) { this.startWork(120, "Đóng Giường ngủ 🛏️", () => this.buildBed()); return; }
+                        else { this.actionText = "Săn thú làm Giường"; this.gatherSpecific(5, 0, 3); return; }
+                    }
+                    if (this.buildings.house && !this.buildings.campfire) {
+                        if (this.inv.wood >= 5 + 1 && this.inv.stone >= 5) { this.startWork(120, "Đốt Lửa trại trước nhà 🔥", () => this.buildCampfire()); return; }
+                        else { this.actionText = "Gom liệu Lửa trại"; this.gatherSpecific(5, 5, 0); return; }
+                    }
+                }
+
+                if (this.level >= 5) {
+                    if (this.tools.pickaxe < 2) {
+                        if (this.inv.wood >= 3 && this.inv.ore >= 10) { this.startWork(150, "Rèn Cuốc Chim Sắt ⛏️", () => { this.inv.wood -= 3; this.inv.ore -= 10; this.tools.pickaxe = 2; }); return; }
+                        else { this.actionText = "Gom quặng làm Cuốc Sắt"; this.gatherSpecific(3, 0, 0, 10); return; }
+                    }
+                    if (this.tools.axe < 2) {
+                        if (this.inv.wood >= 3 && this.inv.ore >= 10) { this.startWork(150, "Rèn Rìu Sắt 🪓", () => { this.inv.wood -= 3; this.inv.ore -= 10; this.tools.axe = 2; }); return; }
+                        else { this.actionText = "Gom quặng làm Rìu Sắt"; this.gatherSpecific(3, 0, 0, 10); return; }
+                    }
+                    if (this.tools.spear < 2) {
+                        if (this.inv.wood >= 1 && this.inv.ore >= 10) { this.startWork(150, "Rèn Giáo Sắt 🗡️", () => { this.inv.wood -= 1; this.inv.ore -= 10; this.tools.spear = 2; this.combatWeapon = "Giáo Sắt"; }); return; }
+                        else { this.actionText = "Gom quặng làm Giáo Sắt"; this.gatherSpecific(1, 0, 0, 10); return; }
+                    }
+                    if (this.tools.shield < 2) {
+                        if (this.inv.wood >= 4 && this.inv.ore >= 15) { this.startWork(150, "Rèn Khiên Sắt 🛡️", () => { this.inv.wood -= 4; this.inv.ore -= 15; this.tools.shield = 2; this.setShield("Khiên Sắt"); }); return; }
+                        else { this.actionText = "Gom quặng làm Khiên Sắt"; this.gatherSpecific(4, 0, 0, 15); return; }
+                    }
+                }
+
+                if (this.buildings.house && this.level >= 3 && this.inv.food > 15) {
+                    let nearbyBushes = entities.trees.filter(t => t.type === 'berry' && t.active && t.position.distanceTo(this.buildings.house.position) < 400).length;
+                    if (nearbyBushes < 3) {
+                        this.startWork(150, "Đang gieo hạt trồng Berry 🌱", () => this.plantFarm());
+                        return;
+                    }
+                }
+
+                if (this.inv.food < 15) {
+                    this.state = "gather"; this.actionText = "Thu thập trữ trái cây 🍇";
+                    this.lockedTarget = this.getClosest(entities.trees, 'berry');
+                    if (this.lockedTarget) return;
+                }
+                if (this.inv.meat < 5) {
+                    this.state = "hunt"; this.actionText = "Đi săn trữ thịt dự phòng 🥩";
+                    this.lockedTarget = this.getClosest(entities.animals, 'all');
+                    if (this.lockedTarget) return;
+                }
+                if (this.inv.wood < 20) {
+                    this.actionText = "Chặt cây trữ Gỗ 🌲"; this.gatherSpecific(20, 0, 0); return;
+                }
+                if (this.inv.stone < 15) {
+                    this.actionText = "Khai thác trữ Đá 🪨"; this.gatherSpecific(0, 15, 0); return;
+                }
+
+                this.state = "wander"; this.actionText = "Khám phá / Tuần tra";
+                let validTarget = false; let attempts = 0; let tx, tz;
+                while(!validTarget && attempts < 50) {
+                    tx = this.group.position.x + (Math.random()-0.5)*1500;
+                    tz = this.group.position.z + (Math.random()-0.5)*1500;
+                    if(!isInsideMountain(tx, tz, 50) && !isInWater({x:tx, y:0, z:tz})) validTarget = true;
+                    attempts++;
+                }
+                if(!validTarget) { tx = 0; tz = 0; }
+                this.lockedTarget = { type: 'point', position: new THREE.Vector3(tx, 0, tz), active: true };
+            }
+
+            gatherResource(type) {
+                let drops = entities.items.filter(i => i.type === type + '_drop' && i.active);
+                this.lockedTarget = this.getClosest(drops, type);
+                
+                if (!this.lockedTarget) {
+                    let list = [];
+                    if (type === 'wood') {
+                        if (this.tools.axe > 0) list = entities.trees.filter(t => t.type === 'wood' && t.active).concat(entities.items.filter(i => i.type === 'wood_item' && i.active));
+                        else list = entities.items.filter(i => i.type === 'wood_item' && i.active);
+                    }
+                    else if (type === 'stone') {
+                        if (this.tools.pickaxe > 0) list = entities.rocks.filter(r => r.active).concat(entities.items.filter(i => i.type === 'stone_item' && i.active));
+                        else list = entities.items.filter(i => i.type === 'stone_item' && i.active);
+                    }
+                    else if (type === 'ore') {
+                        if (this.tools.pickaxe > 0) list = entities.ores.filter(o => o.active);
+                    }
+                    else if (type === 'fur') {
+                        list = entities.items.filter(i => i.type === 'fur_item' && i.active);
+                        if (list.length === 0) { list = entities.animals.filter(a => a.active); this.state = "hunt"; }
+                    }
+                    this.lockedTarget = this.getClosest(list, type);
+                }
+
+                if(this.lockedTarget) { 
+                    if (this.state !== "hunt") this.state = "gather"; 
+                    if (this.lockedTarget.type && this.lockedTarget.type.includes('_item')) this.actionText = `Nhặt ${type==='wood'?'cành gỗ':(type==='fur_item'?'lông thú rơi':'đá cuội')}`;
+                    else if (this.lockedTarget.type && this.lockedTarget.type.includes('_drop')) this.actionText = `Thu gom ${type==='wood'?'gỗ rơi':(type==='stone'?'đá rơi':'quặng rơi')}`;
+                    else this.actionText = this.state === "hunt" ? "Săn thú" : `Khai thác ${type==='wood'?'cây':(type==='ore'?'quặng':'đá')}`; 
+                } else {
+                    this.state = "search_resource";
+                    this.actionText = "Mò mẫm tìm " + (type==='wood'?'gỗ':type==='stone'?'đá':'tài nguyên');
+                    let validTarget = false; let attempts = 0; let tx, tz;
+                    while(!validTarget && attempts < 20) {
+                        tx = this.group.position.x + (Math.random()-0.5)*1000;
+                        tz = this.group.position.z + (Math.random()-0.5)*1000;
+                        if(!isInsideMountain(tx, tz, 50) && !isInWater({x:tx, y:0, z:tz})) validTarget = true;
+                        attempts++;
+                    }
+                    if(!validTarget) { tx = 0; tz = 0; }
+                    this.target.set(tx, 0, tz);
+                    this.lockedTarget = { type: 'point', position: this.target, active: true };
+                }
+            }
+
+            getClosest(list, filter) {
+                let closest = null, minDist = Infinity;
+                let isNightTime = globalTime >= 18 || globalTime < 6;
+                let visionRange = isNightTime ? (this.hasTorch ? 1500 : 300) : Infinity;
+                if (this.mem.wantsBoat) visionRange = Math.min(visionRange, 1500);
+
+                list.forEach(item => {
+                    if (!item.active && !(item instanceof SmartBot)) return;
+                    if (filter === 'wood' && item.type !== 'wood' && item.type !== 'wood_item' && item.type !== 'wood_drop') return;
+                    if (filter === 'stone' && item.type !== 'stone' && item.type !== 'stone_item' && item.type !== 'stone_drop') return;
+                    if (filter === 'ore' && item.type !== 'ore' && item.type !== 'ore_drop') return;
+                    if (filter === 'berry' && item.type !== 'berry') return;
+                    if (filter === 'all' && item.type !== 'meat_item' && item.type !== 'fur_item') return;
+
+                    if (item.blacklistTime && Date.now() < item.blacklistTime) return;
+
+                    let pos = item.group ? item.group.position : (item.mesh ? item.mesh.position : item.position);
+                    
+                    if (isInsideMountain(pos.x, pos.z, 0)) return;
+                    if (isInWater(pos) && !this.ownsBoat) return;
+
+                    let d = this.group.position.distanceTo(pos);
+                    
+                    if (d < minDist && (d <= visionRange || item instanceof Animal3D)) { 
+                        minDist = d; closest = item; 
+                    }
+                }); return closest;
+            }
+
+            buildHouse(type) {
+                let matColor = type === 'stone' ? 0x888888 : 0x8b5a2b;
+                if (type === 'stone') this.inv.stone -= 10;
+                else this.inv.wood -= 10;
+
+                const houseGrp = new THREE.Group(); houseGrp.position.copy(this.group.position);
+                houseGrp.hp = type === 'stone' ? 2000 : 1000; houseGrp.maxHp = houseGrp.hp; houseGrp.active = true; houseGrp.owner = this.id; houseGrp.level = type === 'stone' ? 2 : 1;
+                
+                const mat = new THREE.MeshStandardMaterial({color: matColor});
+                houseGrp.add(new THREE.Mesh(new THREE.BoxGeometry(140, 100, 5), mat).translateY(50).translateZ(-67.5)); 
+                houseGrp.add(new THREE.Mesh(new THREE.BoxGeometry(5, 100, 140), mat).translateY(50).translateX(-67.5)); 
+                houseGrp.add(new THREE.Mesh(new THREE.BoxGeometry(5, 100, 140), mat).translateY(50).translateX(67.5)); 
+                houseGrp.add(new THREE.Mesh(new THREE.BoxGeometry(45, 100, 5), mat).translateY(50).translateZ(67.5).translateX(-45)); 
+                houseGrp.add(new THREE.Mesh(new THREE.BoxGeometry(45, 100, 5), mat).translateY(50).translateZ(67.5).translateX(45)); 
+                houseGrp.add(new THREE.Mesh(new THREE.BoxGeometry(50, 40, 5), mat).translateY(80).translateZ(67.5)); 
+                
+                const doorHinge = new THREE.Group(); doorHinge.position.set(-22.5, 0, 67.5);
+                const doorMesh = new THREE.Mesh(new THREE.BoxGeometry(45, 60, 3), new THREE.MeshStandardMaterial({color: 0x5c4033}));
+                doorMesh.position.set(22.5, 30, 0); doorHinge.add(doorMesh); houseGrp.add(doorHinge); houseGrp.door = doorHinge;
+
+                let roof = new THREE.Mesh(new THREE.ConeGeometry(120, 60, 4), new THREE.MeshStandardMaterial({color: type === 'stone' ? 0x555555 : 0x333333}));
+                roof.position.y = 130; roof.rotation.y = Math.PI/4; roof.castShadow = true; houseGrp.add(roof); houseGrp.roof = roof;
+                
+                houseGrp.takeDamage = (amount) => {
+                    houseGrp.hp -= amount;
+                    let owner = entities.bots.find(b => b.id === houseGrp.owner);
+                    if (owner && owner.stats.hp > 0) { owner.alertTimer = 600; if (owner.state === "sleeping" || owner.state === "idle" || owner.state === "wander") { owner.state = "idle"; owner.lockedTarget = null; } }
+                };
+
+                scene.add(houseGrp); this.buildings.house = houseGrp; entities.buildings.push(houseGrp);
+                houseGrp.label = document.createElement('div'); houseGrp.label.className = 'building-label'; houseGrp.label.innerText = type === 'stone' ? `Nhà Đá của ${this.name}` : `Nhà Gỗ của ${this.name}`;
+                document.getElementById('labels-container').appendChild(houseGrp.label);
+            }
+
+            buildBed() { 
+                this.inv.wood -= 5; this.inv.fur -= 3; 
+                const bedGrp = new THREE.Group(); 
+                if (this.buildings.house) {
+                    bedGrp.position.copy(this.buildings.house.position); 
+                    bedGrp.position.x -= 20; bedGrp.position.z -= 20; 
+                } else { bedGrp.position.copy(this.group.position); }
+                
+                let frame = new THREE.Mesh(new THREE.BoxGeometry(25, 5, 40), new THREE.MeshStandardMaterial({color: 0x3d2314})); frame.position.y = 2.5; frame.castShadow = true;
+                let mattress = new THREE.Mesh(new THREE.BoxGeometry(23, 4, 38), new THREE.MeshStandardMaterial({color: 0xeeeeee})); mattress.position.y = 6; mattress.castShadow = true;
+                let pillow = new THREE.Mesh(new THREE.BoxGeometry(18, 3, 10), new THREE.MeshStandardMaterial({color: 0xdddddd})); pillow.position.set(0, 8, -12); pillow.castShadow = true;
+                bedGrp.add(frame, mattress, pillow); 
+                
+                scene.add(bedGrp); this.buildings.bed = bedGrp; this.state = "idle"; 
+            }
+
+            buildCampfire() { 
+                this.inv.wood -= 5; this.inv.stone -= 5; 
+                const fireGrp = new THREE.Group(); 
+                if (this.buildings.house) {
+                    fireGrp.position.copy(this.buildings.house.position); 
+                    fireGrp.position.z += 120; 
+                } else { fireGrp.position.copy(this.group.position); }
+                
+                for(let i=0; i<8; i++) {
+                    let angle = (i/8) * Math.PI * 2;
+                    let stone = new THREE.Mesh(new THREE.DodecahedronGeometry(4), new THREE.MeshStandardMaterial({color: 0x555555}));
+                    stone.position.set(Math.cos(angle)*12, 2, Math.sin(angle)*12); stone.castShadow = true;
+                    fireGrp.add(stone);
+                }
+                
+                let log1 = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 16), new THREE.MeshStandardMaterial({color: 0x4a2e00})); log1.rotation.x = Math.PI/2; log1.rotation.z = Math.PI/4; log1.position.y = 2; log1.castShadow = true;
+                let log2 = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 16), new THREE.MeshStandardMaterial({color: 0x4a2e00})); log2.rotation.x = Math.PI/2; log2.rotation.z = -Math.PI/4; log2.position.y = 3; log2.castShadow = true;
+                fireGrp.add(log1, log2);
+                
+                const fireMesh = new THREE.Mesh(new THREE.ConeGeometry(6, 15, 5), new THREE.MeshBasicMaterial({color: 0xff6600, transparent: true, opacity: 0.8})); fireMesh.position.y = 10; fireGrp.add(fireMesh); 
+                const pointLight = new THREE.PointLight(0xff8800, 2, 300); pointLight.position.y = 15; fireGrp.add(pointLight); 
+                fireGrp.fireMesh = fireMesh; fireGrp.light = pointLight; 
+                scene.add(fireGrp); this.buildings.campfire = fireGrp; this.state = "idle"; 
+            }
+
+            plantFarm() {
+                this.inv.food -= 5;
+                spawnTree(this.buildings.house.position.x + (Math.random() > 0.5 ? 1 : -1) * (100 + Math.random() * 100), this.buildings.house.position.z + (Math.random() > 0.5 ? 1 : -1) * (100 + Math.random() * 100));
+                this.gainXp(15);
+                this.state = "idle";
+            }
+
+            die() {
+                if (this.state === "dead") return;
+                this.state = "dead"; this.actionText = "Đã chết. Đang tái sinh Gen mới...";
+
+                if (this.stats.water <= 0) this.mem.waterThresh += 10;
+                else if (this.stats.food <= 0) this.mem.foodThresh += 10;
+                else this.mem.combatFocus += 0.3; 
+                this.mem.gen++;
+
+                this.stats.hp = 0; 
+                this.torsoGroup.rotation.x = -Math.PI/2; this.torsoGroup.position.y = 5; 
+                this.isDesperate = false; this.aura.intensity = 0; this.alertTimer = 0;
+                this.workTimer = 0; this.lockedTarget = null;
+                this.hasTorch = false;
+                this.torchGroup.visible = false;
+                this.torchLight.intensity = 0;
+                
+                if (this.buildings.house) { this.buildings.house.active = false; removeFromScene(this.buildings.house); this.buildings.house.label.remove(); this.buildings.house = null; }
+                if (this.buildings.bed) { removeFromScene(this.buildings.bed); this.buildings.bed = null; }
+                if (this.buildings.campfire) { removeFromScene(this.buildings.campfire); this.buildings.campfire = null; }
+
+                setTimeout(() => {
+                    this.name = this.name.split(' (Gen')[0] + ` (Gen ${this.mem.gen})`; 
+                    this.level = 1; this.xp = 0;
+                    this.stats = { hp: 100, maxHp: 100, food: 100, water: 100, sleep: 100, stam: 100 };
+                    this.inv = { wood: 0, stone: 0, ore: 0, meat: 0, fur: 0, food: 2 }; 
+                    
+                    this.combatWeapon = "Tay không"; this.tools = { axe: 0, pickaxe: 0, spear: 0, shield: 0 }; this.ownsBoat = false;
+                    this.setWeapon("Tay không"); this.armorName = "Không có"; this.defense = 0;
+                    while(this.shieldGroup.children.length > 0){ this.shieldGroup.remove(this.shieldGroup.children[0]); }
+                    this.helmetMesh.visible = false; 
+                    this.hairGroup.visible = true; 
+                    this.chestMesh.visible = false; 
+                    this.isExhausted = false;
+
+                    this.torsoGroup.rotation.x = 0; this.torsoGroup.position.y = 19; 
+                    let valid = false; let att=0;
+                    while(!valid && att<50) { 
+                        this.group.position.set((Math.random()-0.5)*MAP_LIMIT, 0, (Math.random()-0.5)*MAP_LIMIT); 
+                        if(!isInWater(this.group.position) && !isInsideMountain(this.group.position.x, this.group.position.z, 20)) valid = true;
+                        att++;
+                    }
+                    this.state = "idle"; this.lockedTarget = null;
+                }, 5000);
+            }
+
+            update() {
+                if (this.state === "dead") { this.labelElement.style.display = 'none'; return; }
+                if (this.stats.hp <= 0) { this.die(); return; }
+
+                let hitWall = false;
+                if (this.group.position.x > MAP_LIMIT) { this.group.position.x = MAP_LIMIT; hitWall = true; }
+                else if (this.group.position.x < -MAP_LIMIT) { this.group.position.x = -MAP_LIMIT; hitWall = true; }
+                if (this.group.position.z > MAP_LIMIT) { this.group.position.z = MAP_LIMIT; hitWall = true; }
+                else if (this.group.position.z < -MAP_LIMIT) { this.group.position.z = -MAP_LIMIT; hitWall = true; }
+                if (hitWall) {
+                    if (["flee", "wander", "search_food", "search_resource"].includes(this.state)) {
+                        this.lockedTarget = null;
+                        this.state = "idle";
+                        this.actionText = "Đi đến rìa thế giới, đổi hướng...";
+                    }
+                }
+
+                if (this.decisionTimer > 0) this.decisionTimer--;
+                
+                if (this.lockedTarget) {
+                    let isValid = true;
+                    if (this.lockedTarget.active === false) isValid = false;
+                    if (this.lockedTarget.hp !== undefined && this.lockedTarget.hp <= 0) isValid = false;
+                    if (this.lockedTarget.state === "dead") isValid = false;
+
+                    if (!isValid) {
+                        this.lockedTarget = null;
+                        if (["attack", "desperate_attack", "flee", "hunt", "gather"].includes(this.state)) {
+                            this.state = "idle";
+                            this.actionText = "Mục tiêu đã biến mất";
+                        }
+                    }
+                }
+
+                if (this.alertTimer > 0) this.alertTimer--;
+                if (this.attackCooldown > 0) this.attackCooldown--; 
+
+                let isNightTime = globalTime >= 18 || globalTime < 6;
+
+                let isHoldingTorch = this.hasTorch && isNightTime && this.state !== "sleeping" && this.state !== "begging";
+                if (isHoldingTorch) {
+                    this.torchGroup.visible = true;
+                    this.torchLight.intensity = 1.5;
+                    this.torchLife--;
+                    if (this.torchLife <= 0) {
+                        this.hasTorch = false;
+                        this.actionText = "Đuốc đã tắt!";
+                    }
+                } else {
+                    this.torchGroup.visible = false;
+                    this.torchLight.intensity = 0;
+                }
+
+                if (this.state === "sleeping") {
+                    this.torsoGroup.rotation.x = -Math.PI/2; this.torsoGroup.position.y = 5;
+                    this.stats.sleep += 0.5; this.stats.hp = Math.min(this.stats.maxHp, this.stats.hp + 0.2); 
+                    if(this.stats.sleep >= 100) { 
+                        this.state = "idle"; this.torsoGroup.rotation.x = 0; this.torsoGroup.position.y = 19; 
+                        this.actionText = "Đã ngủ đủ giấc!";
+                    }
+                } else if (this.state !== "dead" && this.state !== "begging") { 
+                    this.torsoGroup.rotation.x = 0; this.torsoGroup.position.y = 19; 
+                }
+
+                this.stats.food -= 0.008; this.stats.water -= 0.01; this.stats.sleep -= 0.008; 
+                if(this.stats.food <= 0) { this.stats.food = 0; this.stats.hp -= 0.05; }
+                if(this.stats.water <= 0) { this.stats.water = 0; this.stats.hp -= 0.05; }
+                if(this.isDesperate && this.stats.hp > 1) { this.stats.hp -= 0.015; }
+                if(this.stats.hp <= 0) { this.die(); return; }
+                if(this.stats.sleep < 0) this.stats.sleep = 0;
+                
+                let currentSpeed = this.baseSpeed + this.bonusSpeed; 
+                let currentDmg = this.damage;
+                let isAlert = (this.alertTimer > 0); if (isAlert) { currentDmg *= 1.5; } 
+
+                this.isDesperate = (this.stats.hp > 0 && this.stats.hp < this.stats.maxHp * 0.2);
+                if (this.isDesperate) {
+                    if (this.state === "desperate_attack") {
+                        currentSpeed *= 1.8; currentDmg *= 2.5; this.aura.intensity = 3; this.aura.color.setHex(0xff0000);
+                    } else if (this.state === "flee") {
+                        currentSpeed *= 2.2; this.aura.intensity = 2; this.aura.color.setHex(0x00ff00);
+                    } else {
+                        this.aura.intensity = 1; this.aura.color.setHex(0xffaa00);
+                    }
+                } else { this.aura.intensity = 0; }
+
+                let isRunningHome = (this.state === "go_sleep");
+                if (isRunningHome) { currentSpeed *= 2.0; this.stats.stam = 100; }
+
+                let inWater = isInWater(this.group.position);
+                
+                if (this.stats.stam <= 0 && !inWater && !isRunningHome && !this.isDesperate) { this.stats.stam = 0; this.isExhausted = true; }
+                if (this.stats.stam >= 100) { this.isExhausted = false; }
+
+                if (this.state === "executing") {
+                    if (this.workTimer > 0) {
+                        this.workTimer--;
+                        this.actionText = `Đang phán xét... (${Math.ceil(this.workTimer/60)}s)`;
+                        if (this.lockedTarget && this.lockedTarget.group) {
+                            let vecCheck = new THREE.Vector3().subVectors(this.lockedTarget.group.position, this.group.position);
+                            if (vecCheck.lengthSq() > 0.001) {
+                                let targetQuat = this.group.quaternion.clone();
+                                this.group.lookAt(this.lockedTarget.group.position);
+                                let targetRot = this.group.quaternion.clone();
+                                this.group.quaternion.copy(targetQuat);
+                                this.group.quaternion.slerp(targetRot, 0.15);
+                            }
+                        }
+                    } else {
+                        if (this.lockedTarget && this.lockedTarget.state === "begging") {
+                            if (Math.random() < 0.5) { 
+                                this.actionText = "HÀNH QUYẾT! ☠️";
+                                this.lockedTarget.stats.hp = 0;
+                                this.lockedTarget.die();
+                                this.gainXp(100);
+                                this.inv.meat += 5;
+                            } else { 
+                                this.actionText = "Tha thứ 🕊️";
+                                this.lockedTarget.state = "idle";
+                                this.lockedTarget.stats.hp = 20;
+                                this.lockedTarget.actionText = "Được tha mạng!";
+                            }
+                        }
+                        this.state = "idle"; this.lockedTarget = null;
+                    }
+                    this.updateUI(); return; 
+                }
+
+                if (this.state === "begging") {
+                    this.stats.hp -= 0.005; 
+                    if (this.stats.hp <= 0) { this.die(); return; }
+                    this.legL.rotation.x = -Math.PI/2; this.legR.rotation.x = -Math.PI/2;
+                    this.armL.rotation.x = Math.PI; this.armR.rotation.x = Math.PI;
+                    this.updateUI(); return;
+                }
+
+                if (this.state === "working") {
+                    if (this.isExhausted) { 
+                        this.state = "resting"; 
+                        this.actionText = "Kiệt sức... Đang nghỉ ngơi"; 
+                    } 
+                    else {
+                        this.workTimer--; this.stats.stam = Math.max(0, this.stats.stam - 0.2); this.armR.rotation.x = Math.sin(Date.now()*0.02) - 1.0; 
+                        if (this.workTimer <= 0) { 
+                            if (this.onWorkComplete) { this.onWorkComplete(); this.onWorkComplete = null; } 
+                            this.state = "idle"; 
+                        }
+                    } 
+                    this.updateUI(); return; 
+                }
+
+                if (this.isExhausted && !isRunningHome) {
+                    currentSpeed *= 0.35; 
+                    if (['gather', 'hunt', 'attack', 'desperate_attack', 'search_food', 'search_resource', 'wander'].includes(this.state)) { 
+                        this.state = "resting"; this.lockedTarget = null; this.actionText = "Đang đứng nghỉ hồi sức..."; 
+                    }
+                }
+
+                if (inWater) {
+                    if (this.ownsBoat) { 
+                        this.hasBoat = true; 
+                        this.boatGroup.visible = true; this.legL.visible = false; this.legR.visible = false; 
+                        currentSpeed *= 1.2; 
+                    } else { 
+                        currentSpeed *= 0.4; 
+                        if (!isRunningHome) this.stats.stam -= 0.2; 
+                        if (this.stats.stam <= 0) { 
+                            this.stats.hp -= 1; this.actionText = "Sắp chết đuối! 💦"; 
+                            if (this.stats.hp <= 0) { this.die(); return; } 
+                        } 
+                    }
+                } else { 
+                    if (this.hasBoat) { 
+                        this.hasBoat = false; this.boatGroup.visible = false; 
+                        this.legL.visible = true; this.legR.visible = true; 
+                    } 
+                }
+
+                if (this.state === "resting" || this.state === "idle" || this.state === "sleeping") {
+                    this.stats.stam = Math.min(100, this.stats.stam + 1.5);
+                    if (this.stats.stam >= 100 && this.state === "resting") this.state = "idle"; 
+                }
+
+                let shouldInterrupt = false;
+                if (this.decisionTimer <= 0 && this.state !== "attack" && this.state !== "desperate_attack" && this.state !== "flee" && this.state !== "working" && this.state !== "executing" && this.state !== "begging" && this.state !== "resting") {
+                    let needsWater = this.stats.water < this.mem.waterThresh;
+                    let needsFood = this.stats.food < this.mem.foodThresh;
+                    let needsSleep = this.stats.sleep < 15 || (this.stats.sleep < this.mem.sleepThresh && this.stats.sleep < 90);
+                    let needsHeal = this.stats.hp < this.stats.maxHp * 0.6;
+                    let hasEdible = this.inv.meat > 0 || this.inv.food > 0;
+
+                    if (needsSleep && this.state !== "go_sleep" && this.state !== "sleeping") shouldInterrupt = true;
+                    else if (needsWater && this.state !== "find_water" && this.state !== "go_sleep" && this.state !== "sleeping") shouldInterrupt = true;
+                    else if ((needsFood || needsHeal) && !hasEdible && !["hunt", "gather", "search_food", "search_resource", "go_sleep", "sleeping", "find_water", "wander"].includes(this.state)) shouldInterrupt = true;
+                }
+
+                if (shouldInterrupt) {
+                    this.lockedTarget = null;
+                    this.decideAction();
+                } else if (!this.lockedTarget || !this.lockedTarget.active) {
+                    this.lockedTarget = null;
+                    if (this.decisionTimer <= 0 && Math.random() < 0.1 && !["sleeping", "working", "executing", "begging", "attack", "desperate_attack", "flee", "resting"].includes(this.state)) {
+                        this.decideAction();
+                    }
+                }
+
+                let targetPosForCheck = null;
+                if (this.lockedTarget) {
+                    targetPosForCheck = this.lockedTarget.group ? this.lockedTarget.group.position : (this.lockedTarget.mesh ? this.lockedTarget.mesh.position : this.lockedTarget.position);
+                    if (targetPosForCheck && isInsideMountain(targetPosForCheck.x, targetPosForCheck.z, 0)) {
+                        this.lockedTarget = null;
+                        this.state = "idle";
+                        this.actionText = "Mục tiêu bị kẹt trong núi, hủy bỏ.";
+                    }
+                }
+
+                if (this.state === "flee" && this.lockedTarget) {
+                    let threatPos = targetPosForCheck;
+                    let dir = new THREE.Vector3().subVectors(this.group.position, threatPos);
+                    dir.y = 0;
+                    if (dir.lengthSq() > 0.1) {
+                        dir.normalize();
+                        let ftx = this.group.position.x + dir.x * 500;
+                        let ftz = this.group.position.z + dir.z * 500;
+                        this.target.set(ftx, 0, ftz);
+                    }
+                }
+
+                let isMoving = false; 
+
+                if (this.state !== "resting" && this.state !== "begging") {
+                    if (isAlert && this.buildings.house && (!this.lockedTarget || !this.lockedTarget.active) && this.state !== "attack" && this.state !== "desperate_attack" && this.state !== "flee") {
+                        let threat = null; let minDist = 600;
+                        entities.animals.forEach(a => { if (a.active && (a.behavior==='aggressive' || a.behavior==='hunt_small') && a.mesh.position.distanceTo(this.buildings.house.position) < minDist) { minDist = a.mesh.position.distanceTo(this.buildings.house.position); threat = a; }});
+                        if (threat) { this.lockedTarget = threat; this.state = "attack"; this.actionText = "BẢO VỆ NHÀ ⚔️"; }
+                    }
+
+                    if (this.state !== "idle" && this.state !== "sleeping" && this.lockedTarget && (this.lockedTarget.active || this.lockedTarget.hp > 0 || this.lockedTarget.type === 'point')) {
+                        let targetPos = this.lockedTarget.group ? this.lockedTarget.group.position : (this.lockedTarget.mesh ? this.lockedTarget.mesh.position : this.lockedTarget.position);
+                        
+                        if (this.state !== "flee") this.target.copy(targetPos);
+                        
+                        let d = this.group.position.distanceTo(this.target);
+                        let atkRange = (this.weaponName === "Cung Gỗ" && (this.state === "hunt" || this.state === "attack" || this.state === "desperate_attack")) ? 300 : 60;
+
+                        if (this.state === "find_water" && inWater) { this.stats.water = 100; this.lockedTarget.active = false; this.state = "idle"; }
+                        else if (this.state === "go_sleep" && d < 30) { 
+                            this.state = "sleeping"; 
+                            this.lockedTarget.active = false; 
+                            this.actionText = this.buildings.bed ? "Đang ngủ trên giường... 💤" : "Đang ngủ dưới sàn... 💤"; 
+                        }
+                        else if (['gather', 'hunt', 'attack', 'desperate_attack'].includes(this.state) && d < atkRange && this.lockedTarget.type !== 'point') {
+                            
+                            this.equipForTask(this.lockedTarget);
+
+                            let vecCheck = new THREE.Vector3().subVectors(targetPos, this.group.position);
+                            if (vecCheck.lengthSq() > 0.001) {
+                                let currentQuat = this.group.quaternion.clone();
+                                this.group.lookAt(targetPos);
+                                let targetQuat = this.group.quaternion.clone();
+                                this.group.quaternion.copy(currentQuat);
+                                this.group.quaternion.slerp(targetQuat, 0.3);
+                            }
+
+                            // XỬ LÝ NHẶT ĐỒ HÀNG LOẠT (AOE LOOTING)
+                            if (this.lockedTarget.type && (this.lockedTarget.type.includes('_item') || this.lockedTarget.type.includes('_drop'))) {
+                                this.armR.rotation.x = -Math.PI/4; 
+                                
+                                let pickedCount = 0;
+                                let itemsToPick = entities.items.filter(i => i.active && i.position.distanceTo(this.group.position) < 120);
+                                
+                                itemsToPick.forEach(item => {
+                                    item.active = false;
+                                    removeFromScene(item);
+                                    if(item.type === 'wood_item') { this.inv.wood += 1; } 
+                                    else if(item.type === 'stone_item') { this.inv.stone += 1; }
+                                    else if(item.type === 'wood_drop') { this.inv.wood += 2; } 
+                                    else if(item.type === 'stone_drop') { this.inv.stone += 2; }
+                                    else if(item.type === 'ore_drop') { this.inv.ore += 1; }
+                                    else if(item.type === 'meat_item') { this.inv.meat += 1; } 
+                                    else if(item.type === 'fur_item') { this.inv.fur += 1; }
+                                    pickedCount++;
+                                });
+
+                                this.gainXp(pickedCount); 
+                                this.state = "idle"; 
+                                this.lockedTarget = null; 
+                                this.actionText = "Đã gom đồ khu vực này 🎒";
+                            } else {
+                                if (this.weaponName === "Cung Gỗ" && this.attackCooldown <= 0) {
+                                    this.armR.rotation.x = -Math.PI/2;
+                                    if (!isRunningHome && !this.isExhausted) this.stats.stam = Math.max(0, this.stats.stam - 0.2);
+                                    
+                                    const arrow = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 10), new THREE.MeshBasicMaterial({color: 0xeeeeee}));
+                                    arrow.position.copy(this.group.position); arrow.position.y += 20;
+                                    arrow.lookAt(targetPos); 
+                                    arrow.rotateX(-Math.PI/2); 
+                                    scene.add(arrow);
+                                    
+                                    let isCrit = (Math.random() < (0.1 + this.bonusCrit)) || (isAlert && Math.random() < 0.3); 
+                                    let finalDmg = isCrit ? currentDmg * 2 : currentDmg;
+                                    
+                                    let isResource = ['wood', 'stone', 'ore', 'berry'].includes(this.lockedTarget.type);
+                                    if (isResource) {
+                                        if (this.lockedTarget.type === 'wood' && this.tools.axe < 1) finalDmg = 0;
+                                        else if ((this.lockedTarget.type === 'stone' || this.lockedTarget.type === 'ore') && this.tools.pickaxe < 1) finalDmg = 0;
+                                        else finalDmg = 5; 
+                                    }
+
+                                    if (finalDmg > 0) {
+                                        projectiles.push({ mesh: arrow, target: this.lockedTarget, dmg: finalDmg, shooter: this, speed: 15 });
+                                        this.attackCooldown = 40;
+                                    } else {
+                                        this.lockedTarget = null; this.state = "idle";
+                                    }
+                                } 
+                                else if (this.weaponName !== "Cung Gỗ") {
+                                    this.armR.rotation.x = Math.sin(Date.now()*0.02) - 1.5; 
+                                    
+                                    if (this.attackCooldown <= 0) {
+                                        if (!isRunningHome && !this.isExhausted) this.stats.stam = Math.max(0, this.stats.stam - 0.2); 
+                                        let isCrit = (Math.random() < (0.1 + this.bonusCrit)) || (isAlert && Math.random() < 0.3); 
+                                        let finalDmg = isCrit ? currentDmg * 2 : currentDmg;
+                                        
+                                        let isResource = ['wood', 'stone', 'ore', 'berry'].includes(this.lockedTarget.type);
+                                        if (isResource) {
+                                            if (this.lockedTarget.type === 'wood' && this.tools.axe < 1) { finalDmg = 0; this.actionText = "Cần có Rìu để chặt cây!"; }
+                                            else if ((this.lockedTarget.type === 'stone' || this.lockedTarget.type === 'ore') && this.tools.pickaxe < 1) { finalDmg = 0; this.actionText = "Cần có Cuốc Chim để đập đá!"; }
+                                            else if ((this.weaponName === "Rìu Đá" || this.weaponName === "Rìu Sắt") && this.lockedTarget.type === 'wood') finalDmg = 40;
+                                            else if ((this.weaponName === "Cuốc Chim Đá" || this.weaponName === "Cuốc Chim Sắt") && (this.lockedTarget.type === 'stone' || this.lockedTarget.type === 'ore')) finalDmg = 40;
+                                            else finalDmg = 5; 
+                                        }
+
+                                        if (finalDmg > 0) {
+                                            if (this.lockedTarget.takeDamage) this.lockedTarget.takeDamage(finalDmg, this); else this.lockedTarget.hp -= finalDmg;
+                                            this.attackCooldown = 30;
+
+                                            if (isResource && this.lockedTarget.hp > 0) {
+                                                let ratio = this.lockedTarget.hp / this.lockedTarget.maxHp;
+                                                if (this.lockedTarget.type === 'wood') {
+                                                    this.lockedTarget.scale.y = Math.max(0.1, ratio); 
+                                                    if (ratio <= 0.5 && this.lockedTarget.children[1]) this.lockedTarget.children[1].visible = false; 
+                                                } else if (this.lockedTarget.type === 'berry') {
+                                                    if (this.lockedTarget.children[0]) this.lockedTarget.children[0].scale.set(Math.max(0.1, ratio), Math.max(0.1, ratio), Math.max(0.1, ratio));
+                                                } else if (this.lockedTarget.type === 'stone' || this.lockedTarget.type === 'ore') {
+                                                    let scale = Math.max(0.2, ratio);
+                                                    this.lockedTarget.scale.set(scale, scale, scale);
+                                                }
+                                            }
+
+                                            if(this.lockedTarget.hp <= 0) {
+                                                this.lockedTarget.active = false; 
+                                                
+                                                if(this.lockedTarget.species) { 
+                                                    let l = this.lockedTarget.level || 1; 
+                                                    if(typeof this.lockedTarget.die === 'function') this.lockedTarget.die(); 
+                                                    this.gainXp(10 * l); 
+                                                }
+                                                else if(this.lockedTarget.id) {
+                                                    if(typeof this.lockedTarget.die === 'function') this.lockedTarget.die();
+                                                    this.gainXp(50);
+                                                }
+                                                else if(this.lockedTarget.type === 'wood') { this.inv.wood += 10; dropResources(this.lockedTarget.position.x, this.lockedTarget.position.z, 'wood', 2); removeFromScene(this.lockedTarget); this.gainXp(2); }
+                                                else if(this.lockedTarget.type === 'stone') { this.inv.stone += 10; dropResources(this.lockedTarget.position.x, this.lockedTarget.position.z, 'stone', 2); removeFromScene(this.lockedTarget); this.gainXp(2); }
+                                                else if(this.lockedTarget.type === 'ore') { this.inv.ore += 5; dropResources(this.lockedTarget.position.x, this.lockedTarget.position.z, 'ore', 2); removeFromScene(this.lockedTarget); this.gainXp(5); }
+                                                else if(this.lockedTarget.type === 'berry') { this.inv.food += 4; removeFromScene(this.lockedTarget); }
+                                                
+                                                this.state = "idle"; this.lockedTarget = null; this.actionText = "Đã phá vỡ tài nguyên!";
+                                            }
+                                        } else {
+                                            this.lockedTarget = null; this.state = "idle";
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        else if (d > 20) { 
+                            let dir = new THREE.Vector3().subVectors(this.target, this.group.position);
+                            dir.y = 0; 
+                            if(dir.lengthSq() > 0.001) { 
+                                dir.normalize(); 
+                                
+                                let avoidance = new THREE.Vector3();
+                                let hittingMountain = false;
+                                for(let m of mountains) {
+                                    let dx = this.group.position.x - m.x;
+                                    let dz = this.group.position.z - m.z;
+                                    let distSq = dx*dx + dz*dz;
+                                    let avoidRadius = m.r + 150; 
+                                    if(distSq < avoidRadius * avoidRadius) {
+                                        hittingMountain = true;
+                                        let dist = Math.sqrt(distSq);
+                                        if(dist === 0) { dx=1; dz=0; dist=1; }
+                                        let pushForce = Math.pow((avoidRadius - dist) / avoidRadius, 2) * 5.0; 
+                                        avoidance.x += (dx / dist) * pushForce;
+                                        avoidance.z += (dz / dist) * pushForce;
+                                        
+                                        // NÉ TRÁNH TIẾP TUYẾN
+                                        let dot = dir.x * (-dz) + dir.z * dx;
+                                        let sign = dot > 0 ? 1 : -1;
+                                        avoidance.x += (-dz / dist) * pushForce * sign * 1.5;
+                                        avoidance.z += (dx / dist) * pushForce * sign * 1.5;
+                                    }
+                                }
+
+                                if (hittingMountain) {
+                                    this.mountainBlockTimer = (this.mountainBlockTimer || 0) + 1;
+                                    if (this.mountainBlockTimer > 120) {
+                                        if (this.lockedTarget && this.lockedTarget.type !== 'point') this.lockedTarget.blacklistTime = Date.now() + 10000;
+                                        this.lockedTarget = null;
+                                        if (this.state === "flee") {
+                                            let newDir = new THREE.Vector3((Math.random()-0.5), 0, (Math.random()-0.5)).normalize();
+                                            let ftx = this.group.position.x + newDir.x * 600;
+                                            let ftz = this.group.position.z + newDir.z * 600;
+                                            this.target.set(ftx, 0, ftz);
+                                            this.actionText = "Đổi hướng bỏ chạy!";
+                                        } else {
+                                            this.state = "idle";
+                                            this.actionText = "Núi chặn đường! Đổi mục tiêu ⛰️";
+                                        }
+                                        this.mountainBlockTimer = 0;
+                                    }
+                                } else {
+                                    this.mountainBlockTimer = 0;
+                                }
+                                
+                                let waterPush = new THREE.Vector3();
+                                if (!this.ownsBoat && this.state !== "find_water") {
+                                    for(let w of waterZones) {
+                                        let dx = this.group.position.x - w.x;
+                                        let dz = this.group.position.z - w.z;
+                                        let distSq = dx*dx + dz*dz;
+                                        let avoidRadius = w.r + 80;
+                                        if(distSq < avoidRadius * avoidRadius) {
+                                            let dist = Math.sqrt(distSq);
+                                            if(dist === 0) { dx=1; dz=0; dist=1; }
+                                            let pushForce = Math.pow((avoidRadius - dist) / avoidRadius, 2) * 8.0; 
+                                            waterPush.x += (dx / dist) * pushForce;
+                                            waterPush.z += (dz / dist) * pushForce;
+                                        }
+                                    }
+                                }
+                                
+                                if(waterPush.lengthSq() > 0) {
+                                    avoidance.add(waterPush);
+                                    this.waterBlockTimer = (this.waterBlockTimer || 0) + 1;
+                                    if (this.waterBlockTimer > 30) {
+                                        if (this.lockedTarget && this.lockedTarget.type !== 'point') this.lockedTarget.blacklistTime = Date.now() + 10000;
+                                        this.lockedTarget = null;
+                                        this.state = "idle";
+                                        this.waterBlockTimer = 0;
+                                        this.mem.wantsBoat = true;
+                                        this.actionText = "Sông chặn đường! Cần chế Thuyền ⛵";
+                                    }
+                                } else {
+                                    this.waterBlockTimer = 0;
+                                }
+
+                                if(avoidance.lengthSq() > 0) {
+                                    avoidance.y = 0; dir.add(avoidance.multiplyScalar(2.0)); dir.y = 0; 
+                                }
+
+                                if (dir.lengthSq() > 0.001) {
+                                    dir.normalize();
+                                    this.group.position.add(dir.clone().multiplyScalar(currentSpeed)); 
+                                    
+                                    let lookTarget = new THREE.Vector3().copy(this.group.position).add(dir);
+                                    let currentQuat = this.group.quaternion.clone();
+                                    this.group.lookAt(lookTarget);
+                                    let targetQuat = this.group.quaternion.clone();
+                                    this.group.quaternion.copy(currentQuat);
+                                    this.group.quaternion.slerp(targetQuat, 0.15); 
+                                    
+                                    if (!isRunningHome) { if (this.isExhausted) this.stats.stam = Math.min(100, this.stats.stam + 0.2); else this.stats.stam = Math.max(0, this.stats.stam - 0.05); }
+                                    isMoving = true; 
+                                }
+                            }
+                        } else { 
+                            if (this.lockedTarget && this.lockedTarget.type === 'point') {
+                                this.lockedTarget.active = false;
+                                this.state = "idle";
+                            }
+                        }
+                    }
+                }
+
+                applyMountainCollision(this);
+
+                if (isMoving && this.state !== "resting" && this.state !== "begging") {
+                    this.animOffset += currentSpeed * 0.15;
+                    this.legL.rotation.x = -Math.sin(this.animOffset) * 0.6; this.legR.rotation.x = -Math.sin(this.animOffset + Math.PI) * 0.6;
+                    
+                    if (isHoldingTorch) {
+                        this.armL.rotation.x = -Math.PI / 3 + Math.sin(this.animOffset) * 0.1; 
+                    } else {
+                        this.armL.rotation.x = -Math.sin(this.animOffset + Math.PI) * 0.5;
+                    }
+
+                    if(!['gather', 'hunt', 'search_food', 'search_resource', 'wander', 'attack', 'desperate_attack', 'working'].includes(this.state)) this.armR.rotation.x = -Math.sin(this.animOffset) * 0.5; 
+                } else {
+                    this.legL.rotation.x = 0; this.legR.rotation.x = 0; 
+                    
+                    if (isHoldingTorch) {
+                        this.armL.rotation.x = -Math.PI / 3;
+                    } else {
+                        this.armL.rotation.x = 0; 
+                    }
+
+                    if(!['gather', 'hunt', 'search_food', 'search_resource', 'wander', 'attack', 'desperate_attack', 'working'].includes(this.state)) this.armR.rotation.x = 0;
+                    
+                    if (this.state === "begging") {
+                        this.legL.rotation.x = -Math.PI/2; this.legR.rotation.x = -Math.PI/2;
+                        this.armL.rotation.x = Math.PI; this.armR.rotation.x = Math.PI;
+                    }
+                }
+
+                if (this.buildings.campfire) {
+                    if (isNightTime) { 
+                        this.buildings.campfire.fireMesh.visible = true; 
+                        this.buildings.campfire.light.intensity = 2; 
+                        this.buildings.campfire.fireMesh.scale.y = 1 + Math.sin(Date.now() * 0.01) * 0.2; 
+                        
+                        let distToFire = this.group.position.distanceTo(this.buildings.campfire.position);
+                        if (distToFire < 150 && this.state !== "sleeping" && this.state !== "dead") {
+                            this.stats.hp = Math.min(this.stats.maxHp, this.stats.hp + 0.1);
+                            this.stats.stam = Math.min(100, this.stats.stam + 0.5);
+                            if (this.state === "idle") this.actionText = "Đang sưởi ấm & hồi phục 🔥";
+                        }
+                    } else { 
+                        this.buildings.campfire.fireMesh.visible = false; 
+                        this.buildings.campfire.light.intensity = 0; 
+                    }
+                }
+
+                this.updateUI();
+            }
+
+            updateUI() {
+                if (this.state === "dead") { this.labelElement.style.display = 'none'; return; }
+                const vector = new THREE.Vector3(); this.group.getWorldPosition(vector);
+                vector.y += 65; vector.project(camera);
+                const x = (vector.x * .5 + .5) * window.innerWidth; const y = (vector.y * -.5 + .5) * window.innerHeight;
+                
+                if (vector.z < 1 && !isNaN(x) && !isNaN(y)) {
+                    this.labelElement.style.display = 'block'; this.labelElement.style.left = `${x}px`; this.labelElement.style.top = `${y}px`;
+                    this.labelElement.style.borderColor = `#${this.color.toString(16).padStart(6,'0')}`;
+                    
+                    let despText = this.isDesperate ? `<div class="desperate-mode">💢 TRỌNG THƯƠNG 💢</div>` : ``;
+                    let buffText = this.state === "go_sleep" ? `<div class="buff-mode">⚡ BUFF: CHẠY VỀ NHÀ</div>` : ``;
+                    let alertText = this.alertTimer > 0 ? `<div class="alert-mode">⚠️ CẢNH GIÁC (x1.5 Dmg)</div>` : ``;
+                    let exhaustText = (this.isExhausted && this.state !== "resting") ? `<span class="exhausted-text">[Lết Bộ]</span>` : ``;
+                    
+                    this.labelElement.innerHTML = `
+                        <div style="display:flex; flex-direction:column; gap:3px;">
+                            <div><b style="color:#${this.color.toString(16).padStart(6,'0')}">[Lv.${this.level}] ${this.name}</b> ${exhaustText}</div>
+                            <div style="color:#aaa; font-style: italic;">${this.actionText}</div>
+                            ${despText} ${buffText} ${alertText}
+                            <div class="stat-row"><span class="stat-icon">❤️</span><div class="bar-container"><div class="bar-fill hp-fill" style="width:${(this.stats.hp/this.stats.maxHp)*100}%"></div></div></div>
+                            <div class="stat-row"><span class="stat-icon">🍖</span><div class="bar-container"><div class="bar-fill food-fill" style="width:${this.stats.food}%"></div></div></div>
+                            <div class="stat-row"><span class="stat-icon">💧</span><div class="bar-container"><div class="bar-fill water-fill" style="width:${this.stats.water}%"></div></div></div>
+                            <div class="stat-row"><span class="stat-icon">🌙</span><div class="bar-container"><div class="bar-fill sleep-fill" style="width:${this.stats.sleep}%"></div></div></div>
+                            <div class="stat-row"><span class="stat-icon">⚡</span><div class="bar-container"><div class="bar-fill stam-fill" style="width:${this.stats.stam}%"></div></div></div>
+                        </div>
+                    `;
+                } else { this.labelElement.style.display = 'none'; }
+            }
+        }
+
+        entities.bots.push(new SmartBot("b1", "Alpha", 0xff0055));
+        entities.bots.push(new SmartBot("b2", "Beta", 0x0088ff)); 
+        entities.bots.push(new SmartBot("b3", "Gamma", 0x22aa22));
+
+        // ==========================================
+        // 4. CAMERA & VÒNG LẶP RENDER
+        // ==========================================
+        window.setCamera = function(id) {
+            targetBotId = id; document.querySelectorAll('.cam-btn').forEach(btn => btn.classList.remove('active')); event.target.classList.add('active');
+            const invPanel = document.getElementById('inventory-panel');
+            if (id !== 'free') { invPanel.style.display = 'block'; } else { invPanel.style.display = 'none'; }
+        };
+
+        function updateEnvironment() {
+            globalTime += 0.0005; 
+            if (globalTime >= 24) { globalTime = 0; daysPassed++; }
+            let sunAngle = (globalTime / 24) * Math.PI * 2 - Math.PI/2;
+            sunLight.position.x = Math.cos(sunAngle) * 5000; sunLight.position.y = Math.sin(sunAngle) * 5000;
+            
+            if (globalTime > 6 && globalTime < 18) { scene.background = new THREE.Color(0x87CEEB); ambientLight.intensity = 0.5; sunLight.intensity = 1.0; scene.fog.color.setHex(0x87CEEB); }
+            else if (globalTime >= 18 && globalTime <= 19) { scene.background = new THREE.Color(0xfdb813); ambientLight.intensity = 0.3; sunLight.intensity = 0.5; scene.fog.color.setHex(0xfdb813); }
+            else { scene.background = new THREE.Color(0x0a1a2a); ambientLight.intensity = 0.1; sunLight.intensity = 0.0; scene.fog.color.setHex(0x0a1a2a); }
+
+            if (Math.random() < 0.05 && entities.trees.filter(t => t.active).length < 400) { spawnTree(); }
+            
+            if (daysPassed % 3 === 0 && !window.rockSpawnedThisCycle) {
+                window.rockSpawnedThisCycle = true;
+                let activeRocks = entities.rocks.filter(r => r.active).length;
+                let activeOres = entities.ores.filter(o => o.active).length;
+                for(let i=0; i<150-activeRocks; i++) spawnRock();
+                for(let i=0; i<80-activeOres; i++) spawnOre();
+            }
+            if (daysPassed % 3 !== 0) window.rockSpawnedThisCycle = false;
+
+            if (Math.random() < 0.05) {
+                entities.trees = entities.trees.filter(t => t.active);
+                entities.rocks = entities.rocks.filter(r => r.active);
+                entities.ores = entities.ores.filter(o => o.active);
+                entities.animals = entities.animals.filter(a => a.active);
+                entities.items = entities.items.filter(i => i.active);
+                entities.buildings = entities.buildings.filter(b => b.active);
+            }
+
+            if(entities.buildings) {
+                entities.buildings.forEach(b => {
+                    if (b.active && b.hp > 0) {
+                        if (b.door) {
+                            let isNear = entities.bots.some(bot => bot.stats.hp > 0 && bot.group.position.distanceTo(b.position) < 150);
+                            let targetRot = isNear ? Math.PI/2 : 0;
+                            b.door.rotation.y += (targetRot - b.door.rotation.y) * 0.1; 
+                        }
+
+                        const vector = new THREE.Vector3(); b.getWorldPosition(vector);
+                        let scaleMod = b.level ? b.scale.y : 1;
+                        vector.y += 120 * scaleMod; vector.project(camera);
+                        const x = (vector.x * .5 + .5) * window.innerWidth; const y = (vector.y * -.5 + .5) * window.innerHeight;
+                        if (vector.z < 1 && !isNaN(x) && !isNaN(y)) {
+                            b.label.style.display = 'block'; b.label.style.left = `${x}px`; b.label.style.top = `${y}px`;
+                            b.label.innerHTML = `Nhà Lv.${b.level || 1} <br><div style="width:100%;height:3px;background:red;"><div style="width:${(b.hp/b.maxHp)*100}%;height:100%;background:#00ff00;"></div></div>`;
+                        } else { b.label.style.display = 'none'; }
+                    }
+                });
+            }
+
+            currentSeason = Math.floor((daysPassed - 1) / 5) % 4;
+            document.getElementById('time-display').innerText = `Ngày ${daysPassed} - ${Math.floor(globalTime).toString().padStart(2, '0')}:${Math.floor((globalTime%1)*60).toString().padStart(2, '0')} (Mùa ${SEASONS[currentSeason]})`;
+            
+            if (targetBotId !== 'free') {
+                let bot = entities.bots.find(b => b.id === targetBotId);
+                if (bot) {
+                    document.getElementById('inv-bot-name').innerText = `🎒 TÚI ĐỒ: ${bot.name}`;
+                    document.getElementById('inv-weapon-slot').innerHTML = `⚔️ Vũ khí: ${bot.weaponName} (${bot.damage} Dmg)`;
+                    document.getElementById('inv-armor-slot').innerHTML = `🛡️ Giáp: ${bot.armorName}`;
+                    document.getElementById('inv-wood').innerText = bot.inv.wood;
+                    document.getElementById('inv-stone').innerText = bot.inv.stone;
+                    document.getElementById('inv-ore').innerText = bot.inv.ore;
+                    document.getElementById('inv-meat').innerText = bot.inv.meat;
+                    document.getElementById('inv-food').innerText = bot.inv.food;
+                    document.getElementById('inv-fur').innerText = bot.inv.fur;
+                }
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate); updateEnvironment();
+            entities.animals.forEach(a => a.update());
+            entities.bots.forEach(bot => bot.update());
+            
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                let p = projectiles[i];
+                if (!p.target || !p.target.active || p.target.hp <= 0) { 
+                    removeFromScene(p); projectiles.splice(i, 1); continue; 
+                }
+                
+                let targetPos = p.target.group ? p.target.group.position : (p.target.mesh ? p.target.mesh.position : p.target.position);
+                let dir = new THREE.Vector3().subVectors(targetPos, p.mesh.position);
+                let d = dir.length();
+                
+                if (d < p.speed) {
+                    let targetAliveBefore = p.target.hp > 0;
+                    
+                    let isResource = ['wood', 'stone', 'ore', 'berry'].includes(p.target.type);
+                    if (isResource) p.dmg = 5;
+
+                    if (p.target.takeDamage) p.target.takeDamage(p.dmg, p.shooter); 
+                    else p.target.hp -= p.dmg;
+                    
+                    if (isResource && p.target.hp > 0) {
+                        let ratio = p.target.hp / p.target.maxHp;
+                        if (p.target.type === 'wood') {
+                            p.target.scale.y = Math.max(0.1, ratio); 
+                            if (ratio <= 0.5 && p.target.children[1]) p.target.children[1].visible = false; 
+                        } else if (p.target.type === 'berry') {
+                            if (p.target.children[0]) p.target.children[0].scale.set(Math.max(0.1, ratio), Math.max(0.1, ratio), Math.max(0.1, ratio));
+                        } else if (p.target.type === 'stone' || p.target.type === 'ore') {
+                            let scale = Math.max(0.2, ratio);
+                            p.target.scale.set(scale, scale, scale);
+                        }
+                    }
+
+                    if(targetAliveBefore && p.target.hp <= 0) {
+                        p.target.active = false; 
+                        
+                        if(p.target.species) {
+                            let l = p.target.level || 1; 
+                            if(typeof p.target.die === 'function') p.target.die(); 
+                            p.shooter.gainXp(10 * l); 
+                        }
+                        else if(p.target.id) {
+                            if(typeof p.target.die === 'function') p.target.die();
+                            p.shooter.gainXp(50);
+                        }
+                        else if(p.target.type === 'wood') { p.shooter.inv.wood += 10; dropResources(p.target.position.x, p.target.position.z, 'wood', 2); p.shooter.gainXp(2); }
+                        else if(p.target.type === 'stone') { p.shooter.inv.stone += 10; dropResources(p.target.position.x, p.target.position.z, 'stone', 2); p.shooter.gainXp(2); }
+                        else if(p.target.type === 'ore') { p.shooter.inv.ore += 5; dropResources(p.target.position.x, p.target.position.z, 'ore', 2); p.shooter.gainXp(5); }
+                        else if(p.target.type === 'berry') { p.shooter.inv.food += 4; }
+                        removeFromScene(p.target); 
+                    }
+                    removeFromScene(p); projectiles.splice(i, 1);
+                } else {
+                    dir.normalize(); p.mesh.position.add(dir.multiplyScalar(p.speed));
+                }
+            }
+
+            if (targetBotId === 'free') {
+                const moveSpeed = 30;
+                const forward = new THREE.Vector3(); camera.getWorldDirection(forward); 
+                
+                forward.y = 0; 
+                if (forward.lengthSq() < 0.001) { forward.set(0, 0, -1).applyQuaternion(camera.quaternion); forward.y = 0; }
+                forward.normalize();
+                
+                const right = new THREE.Vector3(); right.crossVectors(forward, camera.up).normalize();
+
+                if (keys.KeyW) { controls.target.addScaledVector(forward, moveSpeed); camera.position.addScaledVector(forward, moveSpeed); }
+                if (keys.KeyS) { controls.target.addScaledVector(forward, -moveSpeed); camera.position.addScaledVector(forward, -moveSpeed); }
+                if (keys.KeyA) { controls.target.addScaledVector(right, -moveSpeed); camera.position.addScaledVector(right, -moveSpeed); }
+                if (keys.KeyD) { controls.target.addScaledVector(right, moveSpeed); camera.position.addScaledVector(right, moveSpeed); }
+            } else {
+                let bot = entities.bots.find(b => b.id === targetBotId);
+                if (bot && bot.stats.hp > 0 && !isNaN(bot.group.position.x)) {
+                    let idealOffset = new THREE.Vector3(0, 150, -300); 
+                    idealOffset.applyQuaternion(bot.group.quaternion);
+                    idealOffset.add(bot.group.position);
+                    camera.position.lerp(idealOffset, 0.08); 
+                    
+                    let idealLookAt = new THREE.Vector3(0, 50, 200); 
+                    idealLookAt.applyQuaternion(bot.group.quaternion);
+                    idealLookAt.add(bot.group.position);
+                    controls.target.lerp(idealLookAt, 0.08);
+                }
+            }
+            controls.update(); renderer.render(scene, camera);
+        }
+        window.addEventListener('resize', () => { camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
+        animate();
+    </script>
+</body>
+</html>
